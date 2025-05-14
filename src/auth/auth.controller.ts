@@ -126,6 +126,6 @@ export class AuthController {
   @Get('userManagementRoles')
   @ApiOperation({ summary: 'Obtener los roles de gestión de usuarios' })
   async getUserManagementRoles(@User() user: JwtPayload) {
-    return this.nats.firstValue('user.managementRolesByUser', { userId: user.id });
+    return this.nats.firstValue('user.managementModulesByUser', { userId: user.id });
   }
 }
