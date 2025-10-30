@@ -1,0 +1,12 @@
+FROM nats:latest
+
+# Copia el archivo de configuración al contenedor
+COPY nats-server.conf /etc/nats/nats-server.conf
+
+# Configura el punto de entrada para usar el archivo de configuración personalizado
+ENTRYPOINT ["/nats-server"]
+CMD ["-c", "/etc/nats/nats-server.conf"]
+
+# PASOS PARA LEVANTAR
+# docker build -t nats-muserpol .
+# docker run -d --name nats_c_muserpol -p 4222:4222 -p 8222:8222 nats-muserpol

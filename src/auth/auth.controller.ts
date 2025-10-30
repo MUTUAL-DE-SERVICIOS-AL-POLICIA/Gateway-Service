@@ -1,43 +1,115 @@
-import { Body, Controller, Get, Inject, Post, Req, UseGuards } from '@nestjs/common';
-import { ClientProxy, RpcException } from '@nestjs/microservices';
-import { NATS_SERVICE } from 'src/config';
-import { LoginUserDto, RegisterUserDto } from './dto';
-import { catchError } from 'rxjs';
-import { AuthGuard } from './guards/auth.guard';
-import { Token, User } from './decorators';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Post,
+  Req,
+  Res,
+  UseGuards,
+  UseInterceptors,
+} from '@nestjs/common';
+import { ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { Response } from 'express';
+import { AuthAppMobileGuard } from 'src/auth/guards';
+import { NatsService } from 'src/common';
+import { Records } from 'src/records/records.interceptor';
+import { LoginUserDto } from './dto';
 import { CurrentUser } from './interfaces/current-user.interface';
 
+@ApiTags('auth')
+@UseInterceptors(Records)
 @Controller('auth')
 export class AuthController {
-  constructor(@Inject(NATS_SERVICE) private readonly client: ClientProxy) {}
+  constructor(private readonly nats: NatsService) {}
 
-  @Post('register')
-  registerUser(@Body() registerUserDto: RegisterUserDto) {
-    return this.client.send('auth.register.user', registerUserDto).pipe(
-      catchError((error) => {
-        throw new RpcException(error);
-      }),
-    );
-  }
-
+  @ApiOperation({ summary: 'Auth Web - loginUser' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        username: { type: 'string', example: 'numeroCI' },
+        password: { type: 'string', example: '71931166' },
+      },
+    },
+  })
   @Post('login')
-  loginUser(@Body() loginUserDto: LoginUserDto) {
-    return this.client.send('auth.login.user', loginUserDto).pipe(
-      catchError((error) => {
-        throw new RpcException(error);
-      }),
-    );
+  async loginHubWeb(
+    @Body() loginUserDto: LoginUserDto,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<any> {
+    const data: CurrentUser = await this.nats.firstValue('auth.login', loginUserDto);
+
+    const timeShort = 4;
+    const oneHourMiliseconds = 3600000;
+
+    res.cookie('msp', data.access_token, {
+      path: '/',
+      httpOnly: true,
+      sameSite: 'strict',
+      expires: new Date(Date.now() + timeShort * oneHourMiliseconds),
+    });
+
+    return {
+      message: 'Login successful',
+      user: data.user,
+    };
   }
 
+  @ApiOperation({ summary: 'Auth Web - logout' })
+  @Get('logout')
+  async logout(@Res() res: Response): Promise<void> {
+    res.clearCookie('msp', {
+      path: '/',
+      httpOnly: true,
+      sameSite: 'strict',
+    });
+    res.status(200).json({
+      message: 'Logout successful',
+    });
+  }
 
-  @UseGuards( AuthGuard )
-  @Get('verify')
-  verifyToken( @User() user: CurrentUser, @Token() token: string  ) {
+  @ApiOperation({ summary: 'Auth AppMobile - loginAppMobile' })
+  @ApiResponse({ status: 200, description: 'Login AppMobile' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        username: { type: 'string', example: 'numeroCI' },
+        cellphone: { type: 'string', example: '71931166' },
+        signature: { type: 'string', example: 'firma' },
+        firebaseToken: { type: 'string', example: 'token' },
+        isBiometric: { type: 'boolean', example: 'true' },
+        isRegisterCellphone: { type: 'boolean', example: 'false' },
+      },
+    },
+  })
+  @Post('loginAppMobile')
+  async loginAppMobile(@Body() body: any) {
+    return await this.nats.firstValue('auth.loginAppMobile', body);
+  }
 
-    // const user = req['user'];
-    // const token = req['token'];
+  @ApiOperation({ summary: 'Auth AppMobile - verifyPin' })
+  @ApiResponse({ status: 200, description: 'Verificar pin SMS y crear token' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        pin: { type: 'string', example: '1234' },
+        messageId: { type: 'string', example: '99999' },
+      },
+    },
+  })
+  @Post('verifyPin')
+  async verifyPin(@Body() body: any) {
+    return await this.nats.firstValue('auth.verifyPin', body);
+  }
 
-    // return this.client.send('auth.verify.user', {});
-    return { user, token }
+  @ApiOperation({ summary: 'Auth AppMobile - logoutAppMobile' })
+  @ApiResponse({ status: 200, description: 'Eliminar sesión' })
+  @Delete('logoutAppMobile')
+  @UseGuards(AuthAppMobileGuard)
+  async logoutAppMobile(@Req() req: any) {
+    return await this.nats.firstValue('auth.logoutAppMobile', req.user);
   }
 }

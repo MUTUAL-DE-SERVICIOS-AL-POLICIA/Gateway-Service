@@ -1,13 +1,10 @@
-FROM node:21-alpine3.19
+FROM node:24.4.1-alpine3.21
 
-WORKDIR /usr/src/app
+WORKDIR /app
 
 COPY package.json ./
-COPY package-lock.json ./
+COPY yarn.lock ./
 
-
-RUN npm install
+RUN yarn install
 
 COPY . .
-
-EXPOSE 3000

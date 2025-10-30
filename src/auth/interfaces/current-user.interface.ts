@@ -1,8 +1,7 @@
-
-
-
 export interface CurrentUser {
-  id: string;
-  name: string;
-  email: string;
+  access_token: string;
+  user: {
+    username: string;
+    name: string;
+  };
 }
