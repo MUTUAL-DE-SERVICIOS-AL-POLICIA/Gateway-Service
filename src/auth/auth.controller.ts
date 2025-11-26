@@ -38,22 +38,28 @@ export class AuthController {
     @Body() loginUserDto: LoginUserDto,
     @Res({ passthrough: true }) res: Response,
   ): Promise<any> {
-    const data: CurrentUser = await this.nats.firstValue('auth.login', loginUserDto);
+    try {
+      const data: CurrentUser = await this.nats.firstValue('auth.login', loginUserDto);
+      const timeShort = 4;
+      const oneHourMiliseconds = 3600000;
 
-    const timeShort = 4;
-    const oneHourMiliseconds = 3600000;
+      res.cookie('msp', data.access_token, {
+        path: '/',
+        httpOnly: true,
+        sameSite: 'strict',
+        expires: new Date(Date.now() + timeShort * oneHourMiliseconds),
+      });
 
-    res.cookie('msp', data.access_token, {
-      path: '/',
-      httpOnly: true,
-      sameSite: 'strict',
-      expires: new Date(Date.now() + timeShort * oneHourMiliseconds),
-    });
-
-    return {
-      message: 'Login successful',
-      user: data.user,
-    };
+      return {
+        message: 'Login successful',
+        user: data.user,
+      };
+    } catch (error) {
+      return {
+        error: true,
+        message: 'Credenciales inválidas',
+      };
+    }
   }
 
   @ApiOperation({ summary: 'Auth Web - logout' })

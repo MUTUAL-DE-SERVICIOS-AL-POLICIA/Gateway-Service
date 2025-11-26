@@ -187,7 +187,7 @@ export class AppMobileController {
 
   @Get('ecoComLiveness')
   @ApiResponse({ status: 200, description: 'Obtener liveness del afiliado de complemento' })
-  async ecoComLiveness(@Headers('authorization') authorization: string, @Req() req: any) {
+  async ecoComLiveness(@Headers('authorization') authorization: string) {
     return await this.nats.firstValue('appMobile.ecoComLiveness', { authorization });
   }
 
@@ -364,11 +364,7 @@ export class AppMobileController {
       },
     },
   })
-  async ecoComSaveIdentity(
-    @Headers('authorization') authorization: string,
-    @Body() data: any,
-    @Req() req: any,
-  ) {
+  async ecoComSaveIdentity(@Headers('authorization') authorization: string, @Body() data: any) {
     return await this.nats.firstValue('pvtBe.ecoComSaveIdentity', { authorization, data });
   }
 }
