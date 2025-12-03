@@ -33,7 +33,6 @@ export class PersonsController {
   async showListFingerprint() {
     return this.nats.send('person.showListFingerprint', {});
   }
-
   @Get()
   @ApiResponse({ status: 200, description: 'Mostrar todas las personas' })
   findAllPersons(@Query() filterDto: FilteredPaginationDto) {
@@ -121,23 +120,5 @@ export class PersonsController {
   })
   async showFingerprintRegistered(@Param('id') id: string) {
     return this.nats.send('person.showFingerprintRegistered', { id });
-  }
-
-  @Get('records/:personId')
-  @ApiResponse({
-    status: 200,
-    description: 'Obtener los registros de una persona por su ID',
-  })
-  async getPersonRecords(@Param('personId', ParseIntPipe) personId: number) {
-    return this.nats.firstValue('person.getPersonRecords', { personId });
-  }
-
-  @Get('search/:value/:type')
-  @ApiResponse({
-    status: 200,
-    description: 'Buscar un afiliado',
-  })
-  async searchAffiliate(@Param('value') value: string, @Param('type') type: string) {
-    return this.nats.send('person.search', { value, type });
   }
 }

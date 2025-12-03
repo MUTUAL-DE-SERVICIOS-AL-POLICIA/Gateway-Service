@@ -3,7 +3,6 @@ import {
   Body,
   Controller,
   Delete,
-  Patch,
   Get,
   Param,
   Post,
@@ -36,28 +35,13 @@ export class AffiliatesController {
     private readonly ftp: FtpService,
   ) {}
 
-  @Get('createFileDossier/:affiliateId')
-  @ApiResponse({ status: 200, description: 'Obtener todos los tipos de expedients' })
-  async createFileDossier(@Param('affiliateId') affiliateId: string) {
-    return this.nats.send('affiliate.createFileDossier', { affiliateId });
-  }
-
-  @Get('createDocument/:affiliateId')
-  @ApiResponse({
-    status: 200,
-    description: 'Obtener todos los datos para crear documento del afiliado',
-  })
-  async createDocument(@Param('affiliateId') affiliateId: string) {
-    return this.nats.send('affiliate.createDocument', { affiliateId });
-  }
-
   @Get(':affiliateId')
   @ApiResponse({ status: 200, description: 'Mostrar datos del afiliado' })
   async findOneData(@Param('affiliateId') affiliateId: string) {
     return this.nats.send('affiliate.findOneData', { affiliateId });
   }
 
-  @Post(':affiliateId/document/:procedureDocumentId')
+  @Post(':affiliateId/document/:procedureDocumentId/createOrUpdate')
   @ApiOperation({ summary: 'Enlazar y Subir Documento del Afiliado' })
   @ApiResponse({ status: 200, description: 'El documento fue subido exitosamente.' })
   @ApiResponse({
@@ -88,7 +72,7 @@ export class AffiliatesController {
     },
   })
   @UseInterceptors(AnyFilesInterceptor())
-  async createAffiliateDocument(
+  async createOrUpdateDocument(
     @Param('affiliateId') affiliateId: string,
     @Param('procedureDocumentId') procedureDocumentId: string,
     @UploadedFiles() files: Express.Multer.File[],
@@ -103,106 +87,19 @@ export class AffiliatesController {
       }
     });
 
-    const { error, message, affiliateDocuments } = await this.nats.firstValue(
-      'affiliate.createAffiliateDocument',
+    const { serviceStatus, message, affiliateDocuments } = await this.nats.firstValue(
+      'affiliate.createOrUpdateDocument',
       {
         affiliateId,
         procedureDocumentId,
       },
     );
 
-    if (!error) {
-      await this.ftp.uploadFile(files, affiliateDocuments);
-    }
+    await this.ftp.uploadFile(files, affiliateDocuments);
 
     return {
-      error,
+      serviceStatus,
       message,
-    };
-  }
-
-  @Patch(':affiliateId/document/:procedureDocumentId')
-  @ApiOperation({ summary: 'Actualizar Documento del Afiliado' })
-  @ApiResponse({ status: 200, description: 'El documento fue actualizado exitosamente.' })
-  @ApiResponse({
-    status: 400,
-    description: 'El archivo PDF es obligatorio o el archivo no es válido.',
-  })
-  @ApiResponse({ status: 500, description: 'Error interno del servidor.' })
-  @ApiParam({ name: 'affiliateId', description: 'ID del afiliado', type: Number, example: 123 })
-  @ApiParam({
-    name: 'procedureDocumentId',
-    description: 'ID del del documento',
-    example: 456,
-  })
-  @ApiConsumes('multipart/form-data')
-  @ApiBody({
-    description: 'Archivo PDF del documento del afiliado',
-    type: 'multipart/form-data',
-    required: true,
-    schema: {
-      type: 'object',
-      properties: {
-        documentPdf: {
-          type: 'string',
-          format: 'binary',
-          description: 'Archivo PDF a subir',
-        },
-      },
-    },
-  })
-  @UseInterceptors(AnyFilesInterceptor())
-  async updateAffiliateDocument(
-    @Param('affiliateId') affiliateId: string,
-    @Param('procedureDocumentId') procedureDocumentId: string,
-    @UploadedFiles() files: Express.Multer.File[],
-  ) {
-    if (!files || files.length === 0) {
-      throw new BadRequestException('Debe subir al menos un archivo PDF');
-    }
-
-    files.forEach((file) => {
-      if (file.mimetype !== 'application/pdf') {
-        throw new BadRequestException('Todos los archivos deben ser PDF');
-      }
-    });
-
-    const { error, message, affiliateDocuments } = await this.nats.firstValue(
-      'affiliate.updateAffiliateDocument',
-      {
-        affiliateId,
-        procedureDocumentId,
-      },
-    );
-
-    if (!error) {
-      await this.ftp.uploadFile(files, affiliateDocuments);
-    }
-
-    return {
-      error,
-      message,
-    };
-  }
-
-  @Delete(':affiliateId/documents/:procedureDocumentId')
-  @ApiResponse({ status: 200, description: 'Eliminar el documento del Afiliado' })
-  async deleteDocument(
-    @Param('affiliateId') affiliateId: string,
-    @Param('procedureDocumentId') procedureDocumentId: string,
-  ) {
-    const { paths, message, error } = await this.nats.firstValue('affiliate.deleteDocument', {
-      affiliateId,
-      procedureDocumentId,
-    });
-
-    if (!error) {
-      await this.ftp.removeFile(paths);
-    }
-
-    return {
-      error: error,
-      message: message,
     };
   }
 
@@ -218,7 +115,7 @@ export class AffiliatesController {
     return this.nats.send('affiliate.showFileDossiers', { affiliateId });
   }
 
-  @Post(':affiliateId/fileDossier/:fileDossierId')
+  @Post(':affiliateId/fileDossier/:fileDossierId/createOrUpdateFileDossier')
   @ApiOperation({
     summary: 'Unir chunks y subir expediente del afiliado al FTP',
     description: `Este endpoint concatena los chunks previamente subidos al servidor temporal
@@ -254,87 +151,25 @@ export class AffiliatesController {
     type: Number,
     example: 5,
   })
-  async createAffiliateFileDossier(
+  async createOrUpdateFileDossier(
     @Param('affiliateId') affiliateId: string,
     @Param('fileDossierId') fileDossierId: string,
     @Body() body: any,
   ) {
     const { initialName, totalChunks } = body;
-    const { affiliateFileDossiers, error, message } = await this.nats.firstValue(
-      'affiliate.createAffiliateFileDossier',
-      {
-        affiliateId,
-        fileDossierId,
-      },
-    );
-    if (!error) {
-      const fileDossiers = await this.ftp.concatChunks(+fileDossierId, initialName, +totalChunks);
-      await this.ftp.uploadFile(fileDossiers, affiliateFileDossiers);
-    }
-
-    return {
-      error,
-      message,
-    };
-  }
-
-  @Patch(':affiliateId/fileDossier/:fileDossierId')
-  @ApiOperation({
-    summary: 'Unir chunks y actualizar expediente del afiliado al FTP',
-    description: `Este endpoint concatena los chunks previamente subidos al servidor temporal
-  y genera el archivo final del expediente. Luego, el archivo se actualiza al FTP en la ruta correspondiente.`,
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'El expediente fue concatenado y subido exitosamente al FTP.',
-  })
-  @ApiResponse({
-    status: 400,
-    description: 'No se encontraron todos los chunks necesarios para unir el expediente.',
-  })
-  @ApiResponse({
-    status: 500,
-    description: 'Error interno del servidor durante la unión o subida del expediente.',
-  })
-  @ApiParam({
-    name: 'affiliateId',
-    description: 'ID del afiliado',
-    type: Number,
-    example: 123,
-  })
-  @ApiParam({
-    name: 'fileDossierId',
-    description: 'ID del expediente',
-    type: Number,
-    example: 456,
-  })
-  @ApiParam({
-    name: 'totalChunks',
-    description: 'Cantidad total de chunks que componen el archivo',
-    type: Number,
-    example: 5,
-  })
-  async updateAffiliateFileDossier(
-    @Param('affiliateId') affiliateId: string,
-    @Param('fileDossierId') fileDossierId: string,
-    @Body() body: any,
-  ) {
-    const { initialName, totalChunks } = body;
-    const { affiliateFileDossiers, error, message } = await this.nats.firstValue(
-      'affiliate.updateAffiliateFileDossier',
+    const { affiliateFileDossiers, serviceStatus, message } = await this.nats.firstValue(
+      'affiliate.createOrUpdateFileDossier',
       {
         affiliateId,
         fileDossierId,
       },
     );
 
-    if (!error) {
-      const fileDossiers = await this.ftp.concatChunks(+fileDossierId, initialName, +totalChunks);
-      await this.ftp.uploadFile(fileDossiers, affiliateFileDossiers);
-    }
+    const fileDossiers = await this.ftp.concatChunks(+fileDossierId, initialName, +totalChunks);
+    await this.ftp.uploadFile(fileDossiers, affiliateFileDossiers);
 
     return {
-      error,
+      serviceStatus,
       message,
     };
   }
@@ -386,18 +221,14 @@ export class AffiliatesController {
     @Param('affiliateId') affiliateId: string,
     @Param('fileDossierId') fileDossierId: string,
   ) {
-    const { paths, message, error } = await this.nats.firstValue('affiliate.deleteFileDossier', {
+    const { paths, message } = await this.nats.firstValue('affiliate.deleteFileDossier', {
       affiliateId,
       fileDossierId,
     });
-
-    if (!error) {
-      await this.ftp.removeFile(paths);
-    }
-
+    await this.ftp.removeFile(paths);
     return {
       message: message,
-      error: error,
+      serviceStatus: true,
     };
   }
 
