@@ -51,6 +51,7 @@ export class Records implements NestInterceptor {
       }
 
       if (typeof value === 'string') {
+
         if (neverTruncate.includes(key)) {
           result[key] = value;
           continue;
