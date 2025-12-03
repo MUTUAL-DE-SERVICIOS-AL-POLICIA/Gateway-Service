@@ -1,9 +1,8 @@
 import { Controller, Post, UploadedFile, UseInterceptors, Body, UseGuards } from '@nestjs/common';
 import { MessagePattern } from '@nestjs/microservices';
-import { FtpService, SmsDto } from './';
 import { ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { SmsService } from 'src/common';
+import { WhatsappService, SmsService, FtpService, SmsDto, WhatsappDto } from 'src/common';
 import { AuthGuard } from 'src/auth/guards';
 
 @ApiTags('common')
@@ -12,6 +11,7 @@ export class CommonController {
   constructor(
     private readonly ftp: FtpService,
     private readonly sms: SmsService,
+    private readonly whatsapp: WhatsappService,
   ) {}
 
   @MessagePattern('ftp.listFiles')
@@ -80,5 +80,10 @@ export class CommonController {
   @MessagePattern('sms.send')
   async sendSms(data: SmsDto) {
     return await this.sms.send(data);
+  }
+
+  @MessagePattern('whatsapp.send')
+  async whatsappSms(data: WhatsappDto) {
+    return await this.whatsapp.send(data);
   }
 }

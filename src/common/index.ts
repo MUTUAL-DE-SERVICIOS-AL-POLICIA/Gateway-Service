@@ -1,8 +1,10 @@
 export { PaginationDto } from './dto/pagination.dto';
 export { SmsDto } from './dto/sms.dto';
+export { WhatsappDto } from './dto/whatsapp.dto';
 
-export { FtpService } from './ftp/ftp.service';
-export { NatsService } from './nats/nats.service';
-export { SmsService } from './sms/sms.service';
+export { FtpService } from './services/ftp.service';
+export { NatsService } from './services/nats.service';
+export { SmsService } from './services/sms.service';
+export { WhatsappService } from './services/whatsapp.service';
 
-export { RecordService } from './records/record.service';
+export { RecordService } from './services/record.service';
