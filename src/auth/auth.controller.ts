@@ -76,6 +76,7 @@ export class AuthController {
       type: 'object',
       properties: {
         username: { type: 'string', example: 'numeroCI' },
+        countryCode: { type: 'string', example: '+591' },
         cellphone: { type: 'string', example: '71931166' },
         signature: { type: 'string', example: 'firma' },
         firebaseToken: { type: 'string', example: 'token' },
