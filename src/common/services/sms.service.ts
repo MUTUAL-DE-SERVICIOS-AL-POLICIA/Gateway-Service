@@ -12,12 +12,12 @@ export class SmsService {
     password: smsEnvs.smsServerPassword,
     provider: smsEnvs.smsProvider,
   };
-  private readonly logger = new Logger('FtpService');
+  private readonly logger = new Logger('SmsService');
 
   constructor(private readonly httpService: HttpService) {}
 
   async send(body: SmsDto) {
-    const url = `${this.sms.url}dosend.php?USERNAME=${this.sms.root}&PASSWORD=${this.sms.password}&smsprovider=${this.sms.provider}&smsnum=${body.cellphone}&method=2&Memo=${encodeURIComponent(body.message)}`;
+    const url = `${this.sms.url}dosend.php?USERNAME=${this.sms.root}&PASSWORD=${this.sms.password}&smsprovider=${this.sms.provider}&smsnum=${encodeURIComponent(body.cellphone)}&method=2&Memo=${encodeURIComponent(body.message)}`;
 
     try {
       const { data } = await firstValueFrom(this.httpService.get(url));
@@ -41,12 +41,12 @@ export class SmsService {
 
       if (response.includes('ERROR') || response.includes('errorstatus')) {
         this.logger.error(`Error al reenviar SMS: ${response}`);
-        return { status: false, message: 'Error en el envío', messageId: '' };
+        return { error: true, message: 'Error en el envío', messageId: '' };
       }
 
       return {
-        status: true,
-        message: 'SMS sent successfully',
+        error: false,
+        message: 'Mensaje de texto enviado por SMS',
         messageId: messageId,
       };
     } catch (error) {
