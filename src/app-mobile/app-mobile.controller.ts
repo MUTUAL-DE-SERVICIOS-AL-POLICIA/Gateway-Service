@@ -3,7 +3,10 @@ import {
   Controller,
   Get,
   Headers,
+  HttpException,
+  HttpStatus,
   Param,
+  ParseIntPipe,
   Post,
   Query,
   Req,
@@ -367,4 +370,60 @@ export class AppMobileController {
   async ecoComSaveIdentity(@Headers('authorization') authorization: string, @Body() data: any) {
     return await this.nats.firstValue('pvtBe.ecoComSaveIdentity', { authorization, data });
   }
+
+  /**
+ * PRE-EVALUATION
+ * 1 Obtener las modalidades/submódulos de préstamo disponibles
+ */
+  @Get('preEvaluation/loanModalities/:affiliateId')
+  async getLoanModalities(
+    @Param('affiliateId', ParseIntPipe) affiliateId: number,
+  ) {
+    const response = await this.nats.firstValue(
+      'preEvaluation.loanModalities',
+      { affiliateId },
+    );
+    return response?.data ?? response;
+  }
+
+  /**
+   * 2 Obtener los documentos y parámetros según la modalidad
+   */
+  @Get('preEvaluation/loanDocumentsModality/:affiliateId/:procedureModalityId')
+  async getLoanDocuments(
+    @Param('affiliateId', ParseIntPipe) affiliateId: number,
+    @Param('procedureModalityId', ParseIntPipe) procedureModalityId: number,
+  ) {
+    const response = await this.nats.firstValue(
+      'preEvaluation.loanDocuments',
+      {
+        affiliateId,
+        procedureModalityId,
+      },
+    );
+    return response?.data ?? response;
+  }
+
+  /**
+   * 3 Obtener las últimas 3 contribuciones "quotables"
+   */
+  @Get('preEvaluation/quotable/:affiliateId')
+  @ApiResponse({
+    status: 200,
+    description: 'Obtener las ultimas 3 contribuciones "quotables"',
+  })
+  async getQuotable(
+    @Headers('authorization') authorization: string,
+    @Param('affiliateId', ParseIntPipe) affiliateId: number,
+  ) {
+    return await this.nats.firstValue(
+      'preEvaluation.recentContributions',
+      {
+        authorization,
+        affiliateId,
+      },
+    );
+  }
+
+
 }
