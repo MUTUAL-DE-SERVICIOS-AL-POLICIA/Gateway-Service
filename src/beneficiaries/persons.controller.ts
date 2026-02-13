@@ -10,11 +10,13 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import { ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiResponse, ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthGuard } from 'src/auth/guards/auth.guard';
 import { FtpService, NatsService } from 'src/common';
 import { Records } from 'src/records/records.interceptor';
 import { FilteredPaginationDto } from './dto';
+
+@ApiBearerAuth('msp')
 @ApiTags('beneficiaries')
 @UseGuards(AuthGuard)
 @UseInterceptors(Records)

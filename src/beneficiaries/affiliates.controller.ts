@@ -20,13 +20,15 @@ import {
   ApiParam,
   ApiResponse,
   ApiTags,
+  ApiBearerAuth,
 } from '@nestjs/swagger';
 import { Response } from 'express';
-import { AuthGuard } from 'src/auth/guards/auth.guard';
+import { AuthGuard } from 'src/auth/guards';
 import { FtpService, NatsService } from 'src/common';
 import { Records } from 'src/records/records.interceptor';
 
 @ApiTags('beneficiaries')
+@ApiBearerAuth('msp')
 @UseGuards(AuthGuard)
 @UseInterceptors(Records)
 @Controller('beneficiaries/affiliates')
