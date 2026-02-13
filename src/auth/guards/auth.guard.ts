@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { Request } from 'express';
 import { Reflector } from '@nestjs/core';
-import { NatsService, RecordService } from 'src/common';
+import { NatsService } from 'src/common';
 
 @Injectable()
 export class AuthGuard implements CanActivate {
@@ -16,7 +16,6 @@ export class AuthGuard implements CanActivate {
 
   constructor(
     private readonly nats: NatsService,
-    private readonly recordService: RecordService,
     private readonly reflector: Reflector,
   ) {}
 
@@ -37,17 +36,13 @@ export class AuthGuard implements CanActivate {
 
     try {
       if (apiKey) {
-        return await this.nats.firstValue('auth.verify.apikey', apiKey);
+        return await this.nats.firstValue('auth.verify.apiKey', apiKey);
       }
 
       const { username, name } = await this.nats.firstValue('auth.verify.token', token!);
       request.user = { username, name };
       return true;
     } catch (err) {
-      this.recordService.warn({
-        ip: request.ip,
-        message: apiKey ? 'Api Key inválida' : 'Token inválido',
-      });
       throw new UnauthorizedException({ error: true, message: 'Sin autorización' });
     }
   }
