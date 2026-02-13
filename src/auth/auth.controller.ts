@@ -9,7 +9,7 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import { ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBody, ApiOperation, ApiResponse, ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { Response } from 'express';
 import { AuthAppMobileGuard } from 'src/auth/guards';
 import { NatsService } from 'src/common';
@@ -17,6 +17,7 @@ import { Records } from 'src/records/records.interceptor';
 import { LoginUserDto, LoginAppMobileDto } from './dto';
 import { CurrentUser } from './interfaces/current-user.interface';
 
+@ApiBearerAuth('msp')
 @ApiTags('auth')
 @UseInterceptors(Records)
 @Controller('auth')
