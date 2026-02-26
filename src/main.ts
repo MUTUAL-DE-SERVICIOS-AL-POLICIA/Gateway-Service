@@ -5,7 +5,7 @@ import { Logger, ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { NastEnvs } from './config';
 import { MicroserviceOptions, Transport } from '@nestjs/microservices';
-import * as bodyParser from 'body-parser';
+import { json, urlencoded } from 'express';
 
 async function bootstrap() {
   const logger = new Logger('Microservice-Gateway');
@@ -34,8 +34,8 @@ async function bootstrap() {
       forbidNonWhitelisted: true,
     }),
   );
-  app.use(bodyParser.json({ limit: '50mb' }));
-  app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
+  app.use(json({ limit: '50mb' }));
+  app.use(urlencoded({ limit: '50mb', extended: true }));
   logger.log(`Gateway running on port ${PortEnvs.port}`);
   if (PortEnvs.environment === 'dev') {
     //Configuración swagger (Documentación de las APIS)
@@ -43,6 +43,15 @@ async function bootstrap() {
       .setTitle('APIS DOCUMENTATION')
       .setDescription('Documentation of the Muserpol Microservices APIs')
       .setVersion('1.0')
+      .addBearerAuth(
+        {
+          type: 'http',
+          scheme: 'bearer',
+          bearerFormat: 'JWT',
+          in: 'header',
+        },
+        'msp',
+      )
       .build();
     const document = SwaggerModule.createDocument(app, config);
     SwaggerModule.setup('api', app, document);
