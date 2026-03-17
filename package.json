@@ -28,6 +28,7 @@
   "dependencies": {
     "@nestjs/axios": "4.0.1",
     "@nestjs/common": "11.1.13",
+    "@nestjs/config": "4.0.3",
     "@nestjs/core": "11.1.13",
     "@nestjs/mapped-types": "2.1.0",
     "@nestjs/microservices": "11.1.13",
@@ -39,7 +40,6 @@
     "bcrypt": "6.0.0",
     "class-transformer": "0.5.1",
     "class-validator": "0.14.3",
-    "dotenv": "17.2.4",
     "express": "5.2.1",
     "joi": "18.0.2",
     "multer": "2.0.2",
