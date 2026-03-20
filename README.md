@@ -2,17 +2,20 @@
 
 ## Descripción
 
-**Gateway-Service** es el microservicio que actúa como punto de entrada principal de la plataforma. Orquesta y enruta todas las solicitudes HTTP hacia los microservicios backend.
+**Gateway-Service** es el microservicio que actúa como **punto de entrada única (API Gateway)** principal de toda la plataforma. Orquesta, enruta y valida todas las solicitudes HTTP provenientes de clientes (aplicaciones móviles, web, kioscos) hacia los microservicios backend correspondientes. Es la cara pública de la plataforma, responsable de garantizar seguridad, disponibilidad y rendimiento. Forma parte de una arquitectura de microservicios basada en **NestJS** y utiliza **NATS** para la comunicación asincrónica con otros servicios.
 
 Funcionalidades principales:
-- Enrutamiento centralizado de solicitudes HTTP
-- Control de autenticación y autorización
-- Agregación de datos de múltiples microservicios
-- Integración con servicios externos (SMS, WhatsApp)
-- Gestión de transacciones distribuidas
-- Balanceo de carga y manejo de errores
+- **Enrutamiento centralizado**: Dirigir solicitudes HTTP al microservicio correcto según la ruta
+- **Autenticación y autorización**: Validar tokens JWT y permisos antes de permitir acceso
+- **Agregación de datos**: Combinar respuestas de múltiples microservicios en una sola respuesta
+- **Integración con servicios externos**: SMS, WhatsApp, APIs privadas de backends externos
+- **Balanceo de carga**: Distribuir solicitudes entre instancias de microservicios
+- **Manejo de errores centralizado**: Capturar y formatear errores consistentemente
+- **Rate limiting y throttling**: Controlar flujo de solicitudes para proteger la plataforma
+- **Logging y auditoría**: Registrar todas las solicitudes para debugging y seguridad
+- **Gestión de CORS**: Control de acceso cruzado desde diferentes dominios frontend
 
----
+
 
 ## Clonar el repositorio y agregarle un nombre nuevo del nuevo proyecto
 
