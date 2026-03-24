@@ -10,8 +10,7 @@ import {
   SmsDto,
   WhatsappDto,
 } from 'src/common';
-import { AuthGuard } from 'src/auth/guards';
-
+import { AuthorizeGuard } from 'src/auth/guards';
 @ApiTags('common')
 @Controller('common')
 export class CommonController {
@@ -59,7 +58,7 @@ export class CommonController {
     },
   })
   @UseInterceptors(FileInterceptor('chunk'))
-  @UseGuards(AuthGuard)
+  @UseGuards(AuthorizeGuard)
   async uploadChunk(@UploadedFile() chunk: Express.Multer.File, @Body() body: any) {
     const { nameChunk } = body;
     await this.ftp.uploadChunk(chunk, nameChunk);
