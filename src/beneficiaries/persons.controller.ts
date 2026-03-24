@@ -7,18 +7,17 @@ import {
   ParseUUIDPipe,
   Post,
   Query,
-  UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import { ApiResponse, ApiTags, ApiBearerAuth } from '@nestjs/swagger';
-import { AuthGuard } from 'src/auth/guards/auth.guard';
+import { ApiResponse, ApiTags, ApiSecurity } from '@nestjs/swagger';
 import { FtpService, NatsService } from 'src/common';
 import { Records } from 'src/records/records.interceptor';
 import { FilteredPaginationDto } from './dto';
+import { Authorize, Protected } from 'src/auth/decorators';
 
-@ApiBearerAuth('msp')
 @ApiTags('beneficiaries')
-@UseGuards(AuthGuard)
+@ApiSecurity('origin-header')
+@Authorize('beneficiary-interface', 'persons')
 @UseInterceptors(Records)
 @Controller('beneficiaries/persons')
 export class PersonsController {
@@ -27,6 +26,7 @@ export class PersonsController {
     private readonly ftp: FtpService,
   ) {}
 
+  @Protected('read', 'listFingerprints')
   @Get('showListFingerprint')
   @ApiResponse({
     status: 200,
@@ -36,18 +36,21 @@ export class PersonsController {
     return this.nats.send('person.showListFingerprint', {});
   }
 
+  @Protected('read')
   @Get()
   @ApiResponse({ status: 200, description: 'Mostrar todas las personas' })
   findAllPersons(@Query() filterDto: FilteredPaginationDto) {
     return this.nats.send('person.findAll', filterDto);
   }
 
+  @Protected('read')
   @Get(':term')
   @ApiResponse({ status: 200, description: 'Mostrar una persona' })
   async findOnePersons(@Param('term') term: string) {
     return this.nats.send('person.findOne', { term, field: 'id' });
   }
 
+  @Protected('read')
   @Get(':uuid/details')
   @ApiResponse({
     status: 200,
@@ -56,6 +59,7 @@ export class PersonsController {
   async findPerson(@Param('uuid', new ParseUUIDPipe()) uuid: string) {
     return this.nats.send('person.findOneWithFeatures', { uuid });
   }
+  @Protected('read')
   @Get(':personId/beneficiaries')
   @ApiResponse({
     status: 200,
@@ -69,6 +73,7 @@ export class PersonsController {
     return this.nats.send('person.showPersonsRelatedToAffiliate', { id });
   }
 
+  @Protected('read', 'affiliates')
   @Get(':personId/affiliates')
   @ApiResponse({
     status: 200,
@@ -78,6 +83,7 @@ export class PersonsController {
     return this.nats.send('person.findAffiliates', { id });
   }
 
+  @Protected('write', 'fingerprints')
   @Post(':personId/createPersonFingerprint')
   @ApiResponse({
     status: 200,
@@ -116,6 +122,7 @@ export class PersonsController {
     };
   }
 
+  @Protected('read', 'fingerprints')
   @Get('showPersonFingerprint/:id')
   @ApiResponse({
     status: 200,
@@ -125,6 +132,7 @@ export class PersonsController {
     return this.nats.send('person.showFingerprintRegistered', { id });
   }
 
+  @Protected('read', 'records')
   @Get('records/:personId')
   @ApiResponse({
     status: 200,
@@ -134,6 +142,7 @@ export class PersonsController {
     return this.nats.firstValue('person.getPersonRecords', { personId });
   }
 
+  @Protected('read')
   @Get('search/:value/:type')
   @ApiResponse({
     status: 200,
