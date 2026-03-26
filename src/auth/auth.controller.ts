@@ -21,7 +21,6 @@ import { CurrentUser } from './interfaces/current-user.interface';
 
 @ApiBearerAuth('msp')
 @ApiTags('auth')
-// @UseInterceptors(Records)
 @Controller('auth')
 export class AuthController {
   constructor(private readonly nats: NatsService) {}
@@ -46,6 +45,7 @@ export class AuthController {
     },
   })
   @Post('loginAppMobile')
+  @UseInterceptors(Records)
   async loginAppMobile(@Body() body: LoginAppMobileDto) {
     return await this.nats.firstValue('auth.loginAppMobile', body);
   }
@@ -62,6 +62,7 @@ export class AuthController {
     },
   })
   @Post('verifyPin')
+  @UseInterceptors(Records)
   async verifyPin(@Body() body: any) {
     return await this.nats.firstValue('auth.verifyPin', body);
   }
@@ -70,6 +71,7 @@ export class AuthController {
   @ApiResponse({ status: 200, description: 'Eliminar sesión' })
   @Delete('logoutAppMobile')
   @UseGuards(AuthAppMobileGuard)
+  @UseInterceptors(Records)
   async logoutAppMobile(@Req() req: any) {
     return await this.nats.firstValue('auth.logoutAppMobile', req.user);
   }
