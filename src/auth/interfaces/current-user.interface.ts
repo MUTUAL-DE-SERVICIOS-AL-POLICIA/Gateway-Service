@@ -4,4 +4,5 @@ export interface CurrentUser {
     username: string;
     name: string;
   };
+  access: [string];
 }
