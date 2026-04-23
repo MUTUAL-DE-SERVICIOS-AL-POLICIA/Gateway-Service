@@ -1,4 +1,16 @@
+import 'dotenv/config';
 import * as joi from 'joi';
+
+type OidcClientsRecord = Record<string, unknown>;
+
+const safeJson = <T,>(raw: string | undefined, fallback: T): T => {
+  if (!raw) return fallback;
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    return fallback;
+  }
+};
 
 interface EnvVars {
   PORT: number;
@@ -35,6 +47,8 @@ interface EnvVars {
   CITIZENSHIP_DIGITAL_CLIENT_ID: string;
   CITIZENSHIP_DIGITAL_REDIRECT_URI: string;
   CITIZENSHIP_DIGITAL_SCOPES: string;
+
+  OIDC_CLIENTS?: string;
 }
 
 const envsSchema = joi
@@ -71,6 +85,8 @@ const envsSchema = joi
     DB_HOST: joi.string().required(),
     DB_PORT: joi.number().required(),
     DB_USERNAME: joi.string().required(),
+
+    OIDC_CLIENTS: joi.string(),
   })
   .unknown(true);
 
@@ -138,3 +154,6 @@ export const citizenshipDigitalEnvs = {
   redirectUri: envVars.CITIZENSHIP_DIGITAL_REDIRECT_URI,
   scopes: envVars.CITIZENSHIP_DIGITAL_SCOPES,
 };
+
+const rawOidcClients = safeJson<OidcClientsRecord>(envVars.OIDC_CLIENTS, {});
+export const OidcClientIds: string[] = Object.keys(rawOidcClients);
