@@ -43,7 +43,6 @@ export class AuthController {
       const data: CurrentUser = await this.nats.firstValue('auth.login', loginUserDto);
       const timeShort = 4;
       const oneHourMiliseconds = 3600000;
-
       res.cookie('msp', data.access_token, {
         path: '/',
         httpOnly: true,
@@ -54,6 +53,7 @@ export class AuthController {
       return {
         message: 'Login successful',
         user: data.user,
+        access: data.access,
       };
     } catch (error) {
       return {
