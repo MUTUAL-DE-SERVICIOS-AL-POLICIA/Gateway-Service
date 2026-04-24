@@ -6,7 +6,7 @@ interface EnvVars {
 
   NATS_SERVERS: string[];
 
-  FRONTENDS_SERVERS: string[];
+  FRONTEND_SERVERS: string[];
 
   PVT_BE_API_SERVER: string;
   PVT_BACKEND_API_SERVER: string;
@@ -43,7 +43,7 @@ const envsSchema = joi
     ENVIRONMENT: joi.string().valid('prod', 'dev').required(),
 
     NATS_SERVERS: joi.array().items(joi.string()).required(),
-    FRONTENDS_SERVERS: joi.array().items(joi.string()).required(),
+    FRONTEND_SERVERS: joi.array().items(joi.string()).required(),
 
     FTP_HOST: joi.string(),
     FTP_USERNAME: joi.string(),
@@ -77,7 +77,7 @@ const envsSchema = joi
 const { error, value } = envsSchema.validate({
   ...process.env,
   NATS_SERVERS: process.env.NATS_SERVERS?.split(','),
-  FRONTENDS_SERVERS: process.env.FRONTENDS_SERVERS?.split(','),
+  FRONTEND_SERVERS: process.env.FRONTEND_SERVERS?.split(','),
 });
 
 if (error) {
@@ -104,7 +104,7 @@ export const DbEnvs = {
 };
 
 export const FrontEnvs = {
-  frontendServers: envVars.FRONTENDS_SERVERS,
+  frontendServers: envVars.FRONTEND_SERVERS,
 };
 
 export const PvtEnvs = {
