@@ -3,8 +3,6 @@ import {
   Controller,
   Get,
   Headers,
-  HttpException,
-  HttpStatus,
   Param,
   ParseIntPipe,
   Post,
@@ -84,7 +82,8 @@ export class AppMobileController {
       'Content-Disposition': `inline; filename="${response.name}"`,
       'Content-Length': pdfBuffer.length,
     });
-    return res.send(pdfBuffer);
+    res.send(pdfBuffer);
+    return;
   }
 
   @Get('loanPrintKardex/:loanId')
@@ -109,7 +108,8 @@ export class AppMobileController {
       'Content-Disposition': `inline; filename="${response.name}"`,
       'Content-Length': pdfBuffer.length,
     });
-    return res.send(pdfBuffer);
+    res.send(pdfBuffer);
+    return;
   }
 
   @Get('contributionsAll/:affiliateId')
@@ -146,7 +146,8 @@ export class AppMobileController {
       'Content-Disposition': `attachment; filename="${response.name}"`,
       'Content-Length': pdfBuffer.length,
     });
-    return res.send(pdfBuffer);
+    res.send(pdfBuffer);
+    return;
   }
 
   @Get('contributionsActive/:affiliateId')
@@ -171,7 +172,8 @@ export class AppMobileController {
       'Content-Disposition': `attachment; filename="${response.name}"`,
       'Content-Length': pdfBuffer.length,
     });
-    return res.send(pdfBuffer);
+    res.send(pdfBuffer);
+    return;
   }
 
   @Get('message/:type')
@@ -308,9 +310,10 @@ export class AppMobileController {
       'Content-Disposition': `attachment; filename="${response.name}"`,
       'Content-Length': pdfBuffer.length,
     });
-    return res.send(pdfBuffer);
+    res.send(pdfBuffer);
+    return;
   }
-  e;
+
   @Get('ecoComEconomicComplementsPrint/:economicComplementId')
   @ApiResponse({ status: 200, description: 'Imprimir complemento económico' })
   async ecoComEconomicComplementsPrint(
@@ -333,7 +336,8 @@ export class AppMobileController {
       'Content-Disposition': `attachment; filename="${response.name}"`,
       'Content-Length': pdfBuffer.length,
     });
-    return res.send(pdfBuffer);
+    res.send(pdfBuffer);
+    return;
   }
 
   @Get('ecoComProcedure/:ecoComProcedureId')
@@ -371,11 +375,8 @@ export class AppMobileController {
     return await this.nats.firstValue('pvtBe.ecoComSaveIdentity', { authorization, data });
   }
 
-  /**
- * PRE-EVALUATION
- * 1 Obtener las modalidades/submódulos de préstamo disponibles
- */
   @Get('preEvaluation/loanModalities/:affiliateId')
+  @ApiResponse({ status: 200, description: 'Obtener modalidades de préstamo disponibles' })
   async getLoanModalities(
     @Param('affiliateId', ParseIntPipe) affiliateId: number,
   ) {
@@ -386,10 +387,8 @@ export class AppMobileController {
     return response?.data ?? response;
   }
 
-  /**
-   * 2 Obtener los documentos y parámetros según la modalidad
-   */
   @Get('preEvaluation/loanDocumentsModality/:affiliateId/:procedureModalityId')
+  @ApiResponse({ status: 200, description: 'Obtener documentos y parámetros según la modalidad' })
   async getLoanDocuments(
     @Param('affiliateId', ParseIntPipe) affiliateId: number,
     @Param('procedureModalityId', ParseIntPipe) procedureModalityId: number,
@@ -404,13 +403,10 @@ export class AppMobileController {
     return response?.data ?? response;
   }
 
-  /**
-   * 3 Obtener las últimas 3 contribuciones "quotables"
-   */
   @Get('preEvaluation/quotable/:affiliateId')
   @ApiResponse({
     status: 200,
-    description: 'Obtener las ultimas 3 contribuciones "quotables"',
+    description: 'Obtener las ultimas 3 contribuciones contribuciones',
   })
   async getQuotable(
     @Headers('authorization') authorization: string,
@@ -424,6 +420,4 @@ export class AppMobileController {
       },
     );
   }
-
-
 }
