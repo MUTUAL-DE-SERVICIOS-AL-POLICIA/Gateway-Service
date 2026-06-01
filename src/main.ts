@@ -6,6 +6,7 @@ import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { NastEnvs } from './config';
 import { MicroserviceOptions, Transport } from '@nestjs/microservices';
 import { json, urlencoded } from 'express';
+import * as cookieParser from 'cookie-parser';
 
 async function bootstrap() {
   const logger = new Logger('Microservice-Gateway');
@@ -34,6 +35,7 @@ async function bootstrap() {
       forbidNonWhitelisted: true,
     }),
   );
+  app.use(cookieParser());
   app.use(json({ limit: '50mb' }));
   app.use(urlencoded({ limit: '50mb', extended: true }));
   logger.log(`Gateway running on port ${PortEnvs.port}`);
@@ -43,14 +45,20 @@ async function bootstrap() {
       .setTitle('APIS DOCUMENTATION')
       .setDescription('Documentation of the Muserpol Microservices APIs')
       .setVersion('1.0')
-      .addBearerAuth(
+      .addCookieAuth('sid', {
+        type: 'apiKey',
+        in: 'cookie',
+        name: 'sid',
+        description: 'ID de sesión (sid) establecido por el Auth-Service',
+      })
+      .addApiKey(
         {
-          type: 'http',
-          scheme: 'bearer',
-          bearerFormat: 'JWT',
+          type: 'apiKey',
+          name: 'x-origin',
           in: 'header',
+          description: 'Origin del frontend (ej: http://192.168.2.5:3001)',
         },
-        'msp',
+        'origin-header',
       )
       .build();
     const document = SwaggerModule.createDocument(app, config);
