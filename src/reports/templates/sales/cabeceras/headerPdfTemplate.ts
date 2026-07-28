@@ -23,8 +23,8 @@ const HEADER_HEIGHT = 66;
 /**
  * Tamaño máximo del logo.
  */
-const LOGO_MAX_WIDTH = 120;
-const LOGO_MAX_HEIGHT = 55;
+const LOGO_MAX_WIDTH = 160;
+const LOGO_MAX_HEIGHT = 53.5;
 
 /**
  * Paleta institucional.
@@ -213,7 +213,7 @@ function buildLogoCell(data: SalesReportHeaderData): Content {
   return {
     border: [false, false, false, false],
 
-    margin: [0, 7, 14, 0],
+    margin: [0, 0, 0, 0],
 
     alignment: "center",
 
@@ -406,13 +406,13 @@ function buildMetaCell(
   return {
     border: [false, false, false, false],
 
-    margin: [14, 5, 0, 0],
+    margin: [0, 15, 0, 0],
 
     stack: [
       {
         text: "GENERADO",
 
-        fontSize: 6.3,
+        fontSize: 7.5,
 
         bold: true,
 

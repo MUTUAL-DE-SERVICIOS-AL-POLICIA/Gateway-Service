@@ -17,6 +17,7 @@ export interface SalesReceiptData {
   };
   voucher: {
     receiptNumber: string | null;
+    fileNumber: string | null;
     description: string | null;
     paymentTypeState: string;
     depositDate: string | Date | null;
