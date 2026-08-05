@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { envsFtp } from 'src/config';
 import * as ftp from 'basic-ftp';
-import { Readable, Writable } from 'stream';
+import { Readable, Writable, PassThrough } from 'stream';
 import * as fs from 'fs';
 import * as servicePath from 'path';
 
@@ -14,6 +14,16 @@ export class FtpService {
     this.client = new ftp.Client();
   }
 
+  /**
+   * Helper para lanzar errores preservando la causa original.
+   * Satisface la regla preserve-caught-error del linter.
+   */
+  private wrapError(message: string, cause: unknown): never {
+    const err = new Error(message);
+    (err as any).cause = cause;
+    throw err;
+  }
+
   async connectToFtp() {
     try {
       await this.client.access({
@@ -21,11 +31,12 @@ export class FtpService {
         user: envsFtp.ftpUsername,
         password: envsFtp.ftpPassword,
         secure: envsFtp.ftpSsl,
+        secureOptions: { rejectUnauthorized: false },
       });
       this.logger.log('Connected to FTP server successfully');
     } catch (error) {
       this.logger.error('Failed to connect to FTP server:', error);
-      throw new Error('Failed to connect to FTP server');
+      this.wrapError('Failed to connect to FTP server', error);
     }
   }
 
@@ -44,7 +55,7 @@ export class FtpService {
       }
     } catch (error) {
       this.logger.error('Failed to switch connection:', error);
-      throw new Error('Failed to switch connection');
+      this.wrapError('Failed to switch connection', error);
     }
   }
 
@@ -73,9 +84,42 @@ export class FtpService {
       }
     } catch (error) {
       this.logger.error('Failed to upload file:', error);
-      throw new Error('Failed to upload file');
+      this.wrapError('Failed to upload file', error);
     } finally {
       this.onDestroy();
+    }
+  }
+
+  /**
+   * Sube un stream (Readable) al FTP sin bufferizar en memoria.
+   *
+   * Creado específicamente para el ImportService, donde el archivo
+   * llega como stream desde multer (ftpStorage) o desde otro origen
+   * y necesitamos pipearlo directo a FTP sin acumularlo en RAM,
+   * porque el Gateway tiene poca memoria disponible.
+   *
+   * A diferencia de uploadFile() que recibe buffers y usa this.client,
+   * este método crea su propia conexión FTP (client local) para no
+   * interferir con las operaciones existentes del servicio.
+   */
+  async uploadStream(stream: Readable, remotePath: string): Promise<void> {
+    const fullPath = `${envsFtp.ftpRoot}${remotePath}`;
+    const client = new ftp.Client();
+    try {
+      await client.access({
+        host: envsFtp.ftpHost,
+        user: envsFtp.ftpUsername,
+        password: envsFtp.ftpPassword,
+        secure: envsFtp.ftpSsl,
+        secureOptions: { rejectUnauthorized: false },
+      });
+      await client.ensureDir(servicePath.dirname(fullPath));
+      await client.uploadFrom(stream, fullPath);
+    } catch (error) {
+      this.logger.error('Failed to upload stream:', error);
+      this.wrapError('Failed to upload stream', error);
+    } finally {
+      client.close();
     }
   }
 
@@ -91,7 +135,7 @@ export class FtpService {
       this.logger.log(`Saved chunk to ${chunkPath} success`);
     } catch (error) {
       this.logger.error('Failed to save chunk:', error);
-      throw new Error('Failed to save chunk');
+      this.wrapError('Failed to save chunk', error);
     }
   }
 
@@ -124,8 +168,7 @@ export class FtpService {
       return [fileObject];
     } catch (error) {
       this.logger.error('Failed to concat and upload chunks:', error);
-      throw new Error('Failed to concat and upload chunks');
-    } finally {
+      this.wrapError('Failed to concat and upload chunks', error);
     }
   }
 
@@ -155,10 +198,97 @@ export class FtpService {
       return finalData;
     } catch (error) {
       this.logger.error('Failed to download file:', error);
-      throw new Error('Failed to download file:');
+      this.wrapError('Failed to download file:', error);
     } finally {
       this.onDestroy();
     }
+  }
+
+  /**
+   * Descarga un archivo completo del FTP y lo devuelve como Buffer.
+   *
+   * Creado para el ImportService cuando necesita procesar archivos
+   * .xls (formato binario antiguo) con SheetJS, que requiere el
+   * archivo completo en RAM sí o sí. Solo se usa para archivos
+   * pequeños (<500KB) para no exceder el límite de memoria.
+   *
+   * A diferencia de downloadFile() que usa this.client y devuelve
+   * un formato específico (pdfBuffer/wsqBase64), este método es
+   * genérico: solo da el Buffer crudo. Crea su propia conexión
+   * FTP para no interferir con operaciones concurrentes.
+   */
+  async downloadBuffer(remotePath: string): Promise<Buffer> {
+    const fullPath = `${envsFtp.ftpRoot}${remotePath}`;
+    const client = new ftp.Client();
+    try {
+      await client.access({
+        host: envsFtp.ftpHost,
+        user: envsFtp.ftpUsername,
+        password: envsFtp.ftpPassword,
+        secure: envsFtp.ftpSsl,
+        secureOptions: { rejectUnauthorized: false },
+      });
+      const chunks: Buffer[] = [];
+      const writable = new Writable({
+        write(chunk: Buffer | string, _encoding: string, callback: (error?: Error | null) => void) {
+          chunks.push(Buffer.from(chunk));
+          callback();
+        },
+      });
+      await client.downloadTo(writable, fullPath);
+      return Buffer.concat(chunks);
+    } catch (error) {
+      this.logger.error('Failed to download buffer:', error);
+      this.wrapError('Failed to download buffer', error);
+    } finally {
+      client.close();
+    }
+  }
+
+  /**
+   * Devuelve un PassThrough(puente) conectado al archivo en FTP para leerlo
+   * en streaming, sin descargar todo a memoria.
+   *
+   * Creado para el ImportService, que necesita leer archivos grandes
+   * (CSV, .xlsx) desde FTP y pipearlos directamente a un parser
+   * (csv-parser, exceljs) sin bufferizar el contenido completo.
+   *
+   * Cómo funciona:
+   * 1. Crea un PassThrough (stream readable+writable)
+   * 2. Inicia la descarga FTP en segundo plano (.then chain)
+   * 3. Devuelve el PassThrough inmediatamente
+   * 4. El consumidor (ej: csv-parser) se conecta al PassThrough
+   *    y recibe los datos a medida que llegan del FTP
+   * 5. Cuando la descarga termina, se cierra el stream y la conexión
+   *
+   * La conexión FTP se cierra automáticamente al terminar (o fallar)
+   * la descarga. El consumidor solo ve un Readable estándar.
+   *
+   * Uso típico:
+   *   const stream = await ftpService.downloadToPassThrough(ruta);
+   *   stream.pipe(csvParser).on('data', ...);
+   */
+  async downloadToPassThrough(remotePath: string): Promise<PassThrough> {
+    const fullPath = `${envsFtp.ftpRoot}${remotePath}`;
+    const client = new ftp.Client();
+    const passThrough = new PassThrough();
+
+    client
+      .access({
+        host: envsFtp.ftpHost,
+        user: envsFtp.ftpUsername,
+        password: envsFtp.ftpPassword,
+        secure: envsFtp.ftpSsl,
+        secureOptions: { rejectUnauthorized: false },
+      })
+      .then(() => client.downloadTo(passThrough, fullPath))
+      .then(() => passThrough.end())
+      .catch((err) => {
+        passThrough.destroy(err instanceof Error ? err : new Error(String(err)));
+      })
+      .finally(() => client.close());
+
+    return passThrough;
   }
 
   async removeFile(data: string[]) {
@@ -179,7 +309,7 @@ export class FtpService {
       };
     } catch (error) {
       this.logger.error('Failed to remove file:', error);
-      throw new Error('Failed to remove file');
+      this.wrapError('Failed to remove file', error);
     } finally {
       this.onDestroy();
     }
@@ -193,7 +323,7 @@ export class FtpService {
       return files;
     } catch (error) {
       this.logger.error('Failed to list files:', error);
-      throw new Error('Failed to list files');
+      this.wrapError('Failed to list files', error);
     }
   }
 
@@ -216,7 +346,7 @@ export class FtpService {
         `Failed to move file from ${envsFtp.ftpRoot}${remoteFilePath} to ${envsFtp.ftpRoot}${destinationFilePath}`,
         error,
       );
-      throw new Error(`Failed to move file`);
+      this.wrapError(`Failed to move file`, error);
     }
   }
 
@@ -241,7 +371,7 @@ export class FtpService {
       return { statusSaved: true, message: 'Data saved successfully' };
     } catch (error) {
       this.logger.error('Failed to save data:', error);
-      throw new Error('Failed to save data');
+      this.wrapError('Failed to save data', error);
     }
   }
 
@@ -257,7 +387,7 @@ export class FtpService {
       const raw = fs.readFileSync(filePath, 'utf8');
 
       return JSON.parse(raw);
-    } catch (error) {
+    } catch {
       return null;
     }
   }

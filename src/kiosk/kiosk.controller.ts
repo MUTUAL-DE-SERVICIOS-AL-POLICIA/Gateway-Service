@@ -117,7 +117,15 @@ export class KioskController {
       );
       return data;
     } catch (error) {
-      return error.response.data;
+      if (error.response?.data) {
+        return error.response.data;
+      }
+      return {
+        error: true,
+        canCreate: false,
+        message: 'Error al conectar con el servidor',
+        data: null,
+      };
     }
   }
 
@@ -131,7 +139,14 @@ export class KioskController {
       );
       return data;
     } catch (error) {
-      return error.response.data;
+      if (error.response?.data) {
+        return error.response.data;
+      }
+      return {
+        error: true,
+        message: 'Error al obtener el complemento económico',
+        data: null,
+      };
     }
   }
 
@@ -145,7 +160,14 @@ export class KioskController {
       );
       return data;
     } catch (error) {
-      return error.response.data;
+      if (error.response?.data) {
+        return error.response.data;
+      }
+      return {
+        error: true,
+        message: 'Error al crear el complemento económico',
+        data: null,
+      };
     }
   }
 

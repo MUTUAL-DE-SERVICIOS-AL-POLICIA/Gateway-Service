@@ -9,6 +9,7 @@ import { PvtBeModule } from './pvt-be/pvt-be.module';
 import { PvtStiModule } from './pvt-sti/pvt-sti.module';
 import { AppMobileModule } from './app-mobile/app-mobile.module';
 import { RecordsModule } from './records/records.module';
+import { ImportModule } from './import/import.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { RecordsModule } from './records/records.module';
     PvtStiModule,
     AppMobileModule,
     RecordsModule,
+    ImportModule,
   ],
 })
 export class AppModule {}

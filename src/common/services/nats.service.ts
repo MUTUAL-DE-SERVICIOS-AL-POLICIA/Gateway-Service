@@ -1,7 +1,7 @@
-import { HttpException, Inject, Logger } from '@nestjs/common';
+import { HttpException, Inject, Logger, RequestTimeoutException } from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';
-import { firstValueFrom } from 'rxjs';
-import { catchError } from 'rxjs/operators';
+import { firstValueFrom, Observable, TimeoutError } from 'rxjs';
+import { catchError, timeout } from 'rxjs/operators';
 import { NATS_SERVICE } from '../../config';
 
 export class NatsService {
@@ -9,19 +9,37 @@ export class NatsService {
 
   constructor(@Inject(NATS_SERVICE) private readonly client: ClientProxy) {}
 
-  async send(service: string, data: any): Promise<any> {
+  async send(service: string, data: any): Promise<Observable<any>> {
     return this.client.send(service, data).pipe(
       catchError((err) => {
         if (!err || Object.keys(err).length === 0) {
           throw new HttpException('Microservice Unavailable', 503);
         }
-        throw new HttpException(err, err.statusCode);
+        const status = typeof err.statusCode === 'number' ? err.statusCode : 500;
+        throw new HttpException(err.message || err, status);
       }),
     );
   }
 
-  async firstValue(service: string, data: any): Promise<any> {
-    return firstValueFrom(await this.send(service, data));
+  /**
+   * Envía un mensaje NATS request/reply con timeout.
+   * Si el microservicio no responde en `timeoutMs`ms, lanza RequestTimeoutException.
+   */
+  async firstValue(service: string, data: any, timeoutMs = 30000): Promise<any> {
+    const observable = await this.send(service, data);
+    return firstValueFrom(
+      observable.pipe(
+        timeout(timeoutMs),
+        catchError((err) => {
+          if (err instanceof TimeoutError) {
+            throw new RequestTimeoutException(
+              `Microservicio "${service}" no respondió en ${timeoutMs / 1000}s`,
+            );
+          }
+          throw err;
+        }),
+      ),
+    );
   }
 
   async emit(service: string, data: any): Promise<void> {

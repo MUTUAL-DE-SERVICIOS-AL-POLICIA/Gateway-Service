@@ -10,6 +10,7 @@ import {
 } from 'src/common';
 import { CommonController } from './common.controller';
 import { HttpModule } from '@nestjs/axios';
+import { ImportModule } from './import/import.module';
 
 @Global()
 @Module({
@@ -25,6 +26,7 @@ import { HttpModule } from '@nestjs/axios';
       },
     ]),
     HttpModule,
+    ImportModule,
   ],
   providers: [
     NatsService,
@@ -41,6 +43,7 @@ import { HttpModule } from '@nestjs/axios';
     WhatsappService,
     CitizenshipDigitalService,
     HttpModule,
+    ImportModule,
   ],
 })
 export class CommonModule {}
