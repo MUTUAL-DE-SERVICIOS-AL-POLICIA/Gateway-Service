@@ -17,7 +17,7 @@ export const options: DataSourceOptions & SeederOptions = {
   seeds: ['src/database/seeds/**/*{.ts,.js}'],
   seedTracking: true,
 
-  schema: 'public',
+  schema: 'global',
   migrations: ['dist/database/migrations/**/*{.ts,.js}'],
 };
 
