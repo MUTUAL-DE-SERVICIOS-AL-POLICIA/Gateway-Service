@@ -186,10 +186,10 @@ export class KioskController {
       ecoComResponse = data;
     } catch (error) {
       ecoComResponse = {
-        error: error.response?.data?.error,
-        canCreate: error.response?.data?.canCreate,
-        message: error.response?.data?.message || 'Error al verificar complemento',
+        error: true,
+        message: error || 'Error al obtener complemento',
       };
+      
     }
 
     try {
@@ -198,7 +198,7 @@ export class KioskController {
     } catch (error) {
       loansResponse = {
         error: true,
-        message: error.response?.data?.message || 'Error al obtener préstamos',
+        message: error || 'Error al obtener préstamos',
       };
     }
     return {

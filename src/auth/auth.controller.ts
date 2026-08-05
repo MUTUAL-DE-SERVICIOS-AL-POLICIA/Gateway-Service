@@ -16,6 +16,7 @@ import { NatsService } from 'src/common';
 import { Records } from 'src/records/records.interceptor';
 import { LoginUserDto, LoginAppMobileDto } from './dto';
 import { CurrentUser } from './interfaces/current-user.interface';
+import { AuthBcbGuard } from 'src/auth/guards';
 
 @ApiBearerAuth('msp')
 @ApiTags('auth')
@@ -128,4 +129,13 @@ export class AuthController {
   async credentialsCitizenshipDigital() {
     return await this.nats.firstValue('auth.credentialsCitizenshipDigital', {});
   }
+
+  
+
+  // Código para generar token para el BCB Test
+  @Get('generateBcbJwt')
+  async generateBcbJwt() {
+    return await this.nats.firstValue('authBcb.generateJwt', {});
+  }
+
 }

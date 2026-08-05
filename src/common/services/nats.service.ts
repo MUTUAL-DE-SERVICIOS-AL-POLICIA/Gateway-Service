@@ -46,7 +46,7 @@ export class NatsService {
     try {
       this.client.emit(service, data);
     } catch (error) {
-      this.logger.error(`Failed to emit event to [${service}]`, error.stack);
+      this.logger.error(`Failed to emit event to [${service}]`, error);
       throw new HttpException('Event emit failed', 500);
     }
   }
