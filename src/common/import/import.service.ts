@@ -1,7 +1,7 @@
 import { Injectable, Logger, BadRequestException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import * as csv from 'csv-parser';
+import csv from 'csv-parser';
 import * as XLSX from 'xlsx';
 import * as ExcelJS from 'exceljs';
 import { ImportConfig } from './entities/import-config.entity';

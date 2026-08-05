@@ -1,5 +1,5 @@
 import { Controller, Post, Req, Param, BadRequestException, Query } from '@nestjs/common';
-import * as multer from 'multer';
+import multer from 'multer';
 import { ApiConsumes, ApiBody, ApiOperation, ApiQuery } from '@nestjs/swagger';
 import { ImportGatewayService } from './import.service';
 import { FtpService } from 'src/common';
