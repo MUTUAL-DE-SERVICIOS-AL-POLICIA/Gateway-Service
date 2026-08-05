@@ -1,16 +1,16 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { ImportService } from 'src/common';
+import { ImportGatewayService as ImportGatewayCoreService } from 'src/common';
 
 /**
  * Servicio de importación del Gateway.
- * Ahora delega toda la lógica al ImportService de common,
+ * Ahora delega toda la lógica al ImportGatewayService de common,
  * que maneja: subida a FTP, registro en BD, parsing y envío NATS.
  */
 @Injectable()
 export class ImportGatewayService {
   private readonly logger = new Logger('ImportGatewayService');
 
-  constructor(private readonly importService: ImportService) {}
+  constructor(private readonly importService: ImportGatewayCoreService) {}
 
   /**
    * Procesa un archivo de importación usando el servicio centralizado.

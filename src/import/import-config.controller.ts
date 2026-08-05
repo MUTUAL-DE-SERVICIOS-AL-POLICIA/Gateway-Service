@@ -1,11 +1,13 @@
-import { Controller, Get, Post, Put, Delete, Param, Body } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Param, Body, UseGuards } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ApiTags, ApiOperation, ApiBody, ApiParam } from '@nestjs/swagger';
 import { ImportConfig } from 'src/common/import/entities/import-config.entity';
 import { CreateImportConfigDto } from 'src/common/import/dto/create-import-config.dto';
+import { AuthGuard } from 'src/auth/guards/auth.guard';
 
 @ApiTags('Import Configs')
+@UseGuards(AuthGuard)
 @Controller('import/configs')
 export class ImportConfigController {
   constructor(

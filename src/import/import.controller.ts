@@ -1,11 +1,14 @@
-import { Controller, Post, Req, Param, BadRequestException, Query } from '@nestjs/common';
+import { Controller, Post, Req, Param, BadRequestException, Query, UseGuards } from '@nestjs/common';
 import multer from 'multer';
-import { ApiConsumes, ApiBody, ApiOperation, ApiQuery } from '@nestjs/swagger';
+import { ApiConsumes, ApiBody, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { ImportGatewayService } from './import.service';
 import { FtpService } from 'src/common';
 import { ftpStorage } from 'src/common/import/ftp-storage';
+import { AuthGuard } from 'src/auth/guards/auth.guard';
 import { Request } from 'express';
 
+@ApiTags('Import')
+@UseGuards(AuthGuard)
 @Controller('import')
 export class ImportController {
   constructor(

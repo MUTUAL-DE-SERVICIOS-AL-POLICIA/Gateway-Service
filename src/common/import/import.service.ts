@@ -15,7 +15,7 @@ import { NatsService } from '../services/nats.service';
 const XLS_MAX_SIZE = 500 * 1024;
 
 @Injectable()
-export class ImportService {
+export class ImportGatewayService {
   private readonly logger = new Logger('ImportService');
   private readonly BATCH_SIZE = 500;
 
@@ -46,12 +46,20 @@ export class ImportService {
   /**
    * Ejecuta una función solo después de que la importación anterior
    * con el mismo configName haya terminado (éxito o error).
+   * Limpia el Map después de resolver para evitar memory leaks.
    */
   private async runSequentially(configName: string, fn: () => Promise<any>): Promise<any> {
     const previous = this.importChains.get(configName) || Promise.resolve();
     const next = previous.then(() => fn(), () => fn());
     this.importChains.set(configName, next);
-    return next;
+    try {
+      return await next;
+    } finally {
+      // Limpiar solo si somos la cadena actual (no fue reemplazado por otra import)
+      if (this.importChains.get(configName) === next) {
+        this.importChains.delete(configName);
+      }
+    }
   }
 
   private async processFileInternal(file: Express.Multer.File & { ftpPath?: string; fileHash?: string }, name: string, userId?: string) {
@@ -441,14 +449,19 @@ export class ImportService {
       return values;
     }
 
+    // Aplicar startColumn: recortar las columnas iniciales del array
+    // startColumn es 1-indexed: startColumn=3 significa que empiezan datos en columna C
+    const startIdx = (config.startColumn || 1) - 1;
+    const slicedValues = startIdx > 0 ? values.slice(startIdx) : values;
+
     const result: Record<string, any> = {};
 
     for (const mapping of mappings) {
-      // columnIndex en la config es 1-indexed, convertir a 0-indexed
+      // columnIndex en la config es 1-indexed, convertir a 0-indexado
       const index = mapping.columnIndex - 1;
 
-      if (index >= 0 && index < values.length) {
-        const value = values[index];
+      if (index >= 0 && index < slicedValues.length) {
+        const value = slicedValues[index];
         if (value !== null && value !== undefined && value !== '') {
           result[mapping.fieldName] = value;
         }

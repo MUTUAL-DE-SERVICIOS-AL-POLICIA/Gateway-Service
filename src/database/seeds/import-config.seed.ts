@@ -3,6 +3,12 @@ import { DataSource } from 'typeorm';
 import { ImportConfig } from 'src/common/import/entities/import-config.entity';
 
 /**
+ * @deprecated Este seed está obsoleto. Usa la API REST para crear configs:
+ *   POST http://localhost:3000/api/import/configs
+ *   Body: { "name": "extractos_bancarios", "microservice": "collections", ... }
+ *
+ * Ver MANUAL-IMPORTACION.md sección 6 para más detalles.
+ *
  * Seed para la configuración inicial de importación de extractos bancarios.
  * Usa upsert (conflict on name → update), así que se puede ejecutar
  * múltiples veces sin duplicar registros.
