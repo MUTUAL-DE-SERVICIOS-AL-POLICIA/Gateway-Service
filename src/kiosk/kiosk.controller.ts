@@ -117,15 +117,7 @@ export class KioskController {
       );
       return data;
     } catch (error) {
-      if (error.response?.data) {
-        return error.response.data;
-      }
-      return {
-        error: true,
-        canCreate: false,
-        message: 'Error al conectar con el servidor',
-        data: null,
-      };
+      return error;
     }
   }
 
@@ -139,14 +131,7 @@ export class KioskController {
       );
       return data;
     } catch (error) {
-      if (error.response?.data) {
-        return error.response.data;
-      }
-      return {
-        error: true,
-        message: 'Error al obtener el complemento económico',
-        data: null,
-      };
+      return error;
     }
   }
 
@@ -160,14 +145,7 @@ export class KioskController {
       );
       return data;
     } catch (error) {
-      if (error.response?.data) {
-        return error.response.data;
-      }
-      return {
-        error: true,
-        message: 'Error al crear el complemento económico',
-        data: null,
-      };
+      return error;
     }
   }
 
@@ -177,8 +155,8 @@ export class KioskController {
     description: 'Obtener préstamos de un afiliado',
   })
   async getAffiliateLoans(@Param('identityCard') identityCard: string) {
-    let ecoComResponse: any = null;
-    let loansResponse: any = null;
+    let ecoComResponse: any;
+    let loansResponse: any;
     const ecoComUrl = `${PvtEnvs.PvtBeApiServer}/kioskoComplemento?ci=${identityCard}`;
     const loansUrl = `${PvtEnvs.PvtBackendApiServer}/kiosk/verify_loans/${identityCard}`;
     try {

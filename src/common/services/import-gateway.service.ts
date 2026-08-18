@@ -1,5 +1,4 @@
-import { Injectable, Logger, BadRequestException, RequestTimeoutException, HttpException } from '@nestjs/common';
-import { TimeoutError } from 'rxjs';
+import { Injectable, Logger, BadRequestException, HttpException } from '@nestjs/common';
 import csv from 'csv-parser';
 import * as XLSX from 'xlsx';
 import * as ExcelJS from 'exceljs';
@@ -373,10 +372,8 @@ export class ImportGatewayService {
       const response = await this.natsService.firstValue(targetPattern, payload);
       return response;
     } catch (error) {
-      // Retry once on transient errors (timeout, network issues, 503)
-      const isTransient = error instanceof RequestTimeoutException || 
-                          (error instanceof HttpException && error.getStatus() === 503) ||
-                          error instanceof TimeoutError;
+      // Retry once on transient errors (503)
+      const isTransient = error instanceof HttpException && error.getStatus() === 503;
 
       if (isTransient && !isLastBatch) {
         this.logger.warn(`Retrying batch to ${targetPattern} after transient error: ${error.message}`);

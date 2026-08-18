@@ -1,7 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { envsFtp } from 'src/config';
 import * as ftp from 'basic-ftp';
-import { Readable, Writable, PassThrough } from 'stream';
+import { Readable, Transform, PassThrough, Writable } from 'stream';
+import { createHash } from 'crypto';
 import * as fs from 'fs';
 import * as servicePath from 'path';
 
@@ -14,10 +15,6 @@ export class FtpService {
     this.client = new ftp.Client();
   }
 
-  /**
-   * Helper para lanzar errores preservando la causa original.
-   * Satisface la regla preserve-caught-error del linter.
-   */
   private wrapError(message: string, cause: unknown): never {
     const err = new Error(message);
     (err as any).cause = cause;
@@ -44,14 +41,10 @@ export class FtpService {
     try {
       if (value === 'true') {
         await this.connectToFtp();
-        return {
-          statusConnect: true,
-        };
+        return { statusConnect: true };
       } else {
         await this.onDestroy();
-        return {
-          statusConnect: false,
-        };
+        return { statusConnect: false };
       }
     } catch (error) {
       this.logger.error('Failed to switch connection:', error);
@@ -72,12 +65,9 @@ export class FtpService {
       }
       for (const res of data) {
         const { fileId, path } = res;
-
         const verifyPath = `${envsFtp.ftpRoot}${servicePath.dirname(path)}`;
         const remotePath = `${envsFtp.ftpRoot}${path}`;
-
         const documentStream = Readable.from(docsMap.get(`file[${fileId}]`));
-
         await this.client.ensureDir(verifyPath);
         await this.client.uploadFrom(documentStream, remotePath);
         this.logger.log(`'Uploaded ${path} successfully'`);
@@ -90,18 +80,6 @@ export class FtpService {
     }
   }
 
-  /**
-   * Sube un stream (Readable) al FTP sin bufferizar en memoria.
-   *
-   * Creado específicamente para el ImportService, donde el archivo
-   * llega como stream desde multer (ftpStorage) o desde otro origen
-   * y necesitamos pipearlo directo a FTP sin acumularlo en RAM,
-   * porque el Gateway tiene poca memoria disponible.
-   *
-   * A diferencia de uploadFile() que recibe buffers y usa this.client,
-   * este método crea su propia conexión FTP (client local) para no
-   * interferir con las operaciones existentes del servicio.
-   */
   async uploadStream(stream: Readable, remotePath: string): Promise<void> {
     const fullPath = `${envsFtp.ftpRoot}${remotePath}`;
     const client = new ftp.Client();
@@ -143,7 +121,6 @@ export class FtpService {
     try {
       const tempDir = '/tmp';
       const buffers: Buffer[] = [];
-
       for (let i = 0; i < totalChunks; i++) {
         const chunkPath = servicePath.join(tempDir, `${nameInitial}-${i}`);
         if (!fs.existsSync(chunkPath)) {
@@ -154,7 +131,6 @@ export class FtpService {
         fs.unlinkSync(chunkPath);
       }
       const fileBuffer = Buffer.concat(buffers);
-
       const fileObject = {
         fieldname: `file[${fieldname}]`,
         originalname: `${nameInitial}.pdf`,
@@ -163,7 +139,6 @@ export class FtpService {
         buffer: fileBuffer,
         size: fileBuffer.length,
       };
-
       this.logger.log(`Concatenated chunks to successfully`);
       return [fileObject];
     } catch (error) {
@@ -176,7 +151,6 @@ export class FtpService {
     try {
       await this.connectToFtp();
       const finalData = [];
-
       for (const res of data) {
         const { path } = res;
         const remoteFilePath = `${envsFtp.ftpRoot}${path}`;
@@ -204,19 +178,6 @@ export class FtpService {
     }
   }
 
-  /**
-   * Descarga un archivo completo del FTP y lo devuelve como Buffer.
-   *
-   * Creado para el ImportService cuando necesita procesar archivos
-   * .xls (formato binario antiguo) con SheetJS, que requiere el
-   * archivo completo en RAM sí o sí. Solo se usa para archivos
-   * pequeños (<500KB) para no exceder el límite de memoria.
-   *
-   * A diferencia de downloadFile() que usa this.client y devuelve
-   * un formato específico (pdfBuffer/wsqBase64), este método es
-   * genérico: solo da el Buffer crudo. Crea su propia conexión
-   * FTP para no interferir con operaciones concurrentes.
-   */
   async downloadBuffer(remotePath: string): Promise<Buffer> {
     const fullPath = `${envsFtp.ftpRoot}${remotePath}`;
     const client = new ftp.Client();
@@ -245,34 +206,10 @@ export class FtpService {
     }
   }
 
-  /**
-   * Devuelve un PassThrough(puente) conectado al archivo en FTP para leerlo
-   * en streaming, sin descargar todo a memoria.
-   *
-   * Creado para el ImportService, que necesita leer archivos grandes
-   * (CSV, .xlsx) desde FTP y pipearlos directamente a un parser
-   * (csv-parser, exceljs) sin bufferizar el contenido completo.
-   *
-   * Cómo funciona:
-   * 1. Crea un PassThrough (stream readable+writable)
-   * 2. Inicia la descarga FTP en segundo plano (.then chain)
-   * 3. Devuelve el PassThrough inmediatamente
-   * 4. El consumidor (ej: csv-parser) se conecta al PassThrough
-   *    y recibe los datos a medida que llegan del FTP
-   * 5. Cuando la descarga termina, se cierra el stream y la conexión
-   *
-   * La conexión FTP se cierra automáticamente al terminar (o fallar)
-   * la descarga. El consumidor solo ve un Readable estándar.
-   *
-   * Uso típico:
-   *   const stream = await ftpService.downloadToPassThrough(ruta);
-   *   stream.pipe(csvParser).on('data', ...);
-   */
   async downloadToPassThrough(remotePath: string): Promise<PassThrough> {
     const fullPath = `${envsFtp.ftpRoot}${remotePath}`;
     const client = new ftp.Client();
     const passThrough = new PassThrough();
-
     client
       .access({
         host: envsFtp.ftpHost,
@@ -287,7 +224,6 @@ export class FtpService {
         passThrough.destroy(err instanceof Error ? err : new Error(String(err)));
       })
       .finally(() => client.close());
-
     return passThrough;
   }
 
@@ -303,10 +239,7 @@ export class FtpService {
           this.logger.warn(`Not found: ${path}`);
         }
       }
-      return {
-        statusRemoved: true,
-        message: 'File remove successfully',
-      };
+      return { statusRemoved: true, message: 'File remove successfully' };
     } catch (error) {
       this.logger.error('Failed to remove file:', error);
       this.wrapError('Failed to remove file', error);
@@ -330,17 +263,13 @@ export class FtpService {
   async renameFile(remoteFilePath: string, destinationFilePath: string) {
     try {
       const destinationDir = `${envsFtp.ftpRoot}${destinationFilePath.substring(0, destinationFilePath.lastIndexOf('/'))}`;
-
       await this.client.ensureDir(destinationDir);
       await this.client.rename(
         `${envsFtp.ftpRoot}${remoteFilePath}`,
         `${envsFtp.ftpRoot}${destinationFilePath}`,
       );
       this.logger.log(`File moved successfully ${destinationFilePath}`);
-      return {
-        statusMoved: true,
-        message: 'File moved successfully',
-      };
+      return { statusMoved: true, message: 'File moved successfully' };
     } catch (error) {
       this.logger.error(
         `Failed to move file from ${envsFtp.ftpRoot}${remoteFilePath} to ${envsFtp.ftpRoot}${destinationFilePath}`,
@@ -414,4 +343,104 @@ export class FtpService {
     await this.client.close();
     this.logger.log('FTP connection closed');
   }
+}
+
+/**
+ * Multer storage engine para subir archivos a FTP.
+ * Calcula SHA256 hash y sube a FTP usando PassThrough (sin /tmp/).
+ */
+const ftpStorageLogger = new Logger('FtpStorage');
+
+export function ftpStorage(ftpService: FtpService, target: string) {
+  return {
+    async _handleFile(
+      req: any,
+      file: { fieldname: string; originalname: string; encoding: string; mimetype: string; stream: Readable },
+      cb: (error?: any, info?: any) => void,
+    ) {
+      const dateStr = new Date().toISOString().split('T')[0];
+      const timestamp = Date.now();
+      const safeName = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const ftpPath = `/imports/${target}/${dateStr}/${timestamp}_${safeName}`;
+
+      let fileSize = 0;
+      const hash = createHash('sha256');
+
+      // Validar que el stream no esté consumido
+      if (file.stream.destroyed) {
+        cb(new Error('Stream ya fue consumido'));
+        return;
+      }
+
+      // Crear PassThrough para duplicar el stream
+      const tee = new PassThrough();
+      const chunks: Buffer[] = [];
+      const hashCounter = new Transform({
+        transform(chunk: Buffer, _encoding: string, callback: (error?: any, data?: any) => void) {
+          fileSize += chunk.length;
+          hash.update(chunk);
+          callback(null, chunk);
+        },
+      });
+
+      // Manejar errores del hashCounter
+      hashCounter.on('error', (err) => {
+        tee.destroy();
+        cb(err);
+      });
+
+      // Recopilar chunks del tee
+      tee.on('data', (chunk: Buffer) => {
+        chunks.push(chunk);
+      });
+
+      // Cuando termine el stream, subir a FTP
+      tee.on('end', async () => {
+        try {
+          const fileBuffer = Buffer.concat(chunks);
+          const { Readable } = await import('stream');
+          const ftpStream = Readable.from(fileBuffer);
+          await ftpService.uploadStream(ftpStream, ftpPath);
+          ftpStorageLogger.log(`FTP upload successful: ${ftpPath}`);
+
+          const fileHash = hash.digest('hex');
+          cb(null, {
+            ftpPath,
+            originalname: file.originalname,
+            encoding: file.encoding,
+            mimetype: file.mimetype,
+            size: fileSize,
+            fileHash,
+          });
+        } catch (ftpErr) {
+          cb(ftpErr);
+        }
+      });
+
+      // Manejar errores del tee
+      tee.on('error', (err) => {
+        cb(err);
+      });
+
+      // Conectar streams
+      file.stream.pipe(hashCounter);
+      file.stream.pipe(tee);
+
+      // Manejar errores del tee
+      tee.on('error', (err) => {
+        cb(err);
+      });
+    },
+
+    _removeFile(req: any, file: any, cb: (error?: any) => void) {
+      if (file.ftpPath) {
+        ftpService
+          .removeFile([file.ftpPath])
+          .then(() => cb(null))
+          .catch((err: Error) => cb(err));
+      } else {
+        cb(null);
+      }
+    },
+  };
 }
