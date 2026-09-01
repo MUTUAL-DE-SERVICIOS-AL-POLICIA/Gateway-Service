@@ -8,7 +8,7 @@ import {
   WhatsappService,
   CitizenshipDigitalService,
   BcbService,
-  ImportGatewayService,
+  ImportCsvService,
 } from 'src/common';
 import { CommonController } from './common.controller';
 import { NotificationsController } from './notifications.controller';
@@ -36,7 +36,7 @@ import { HttpModule } from '@nestjs/axios';
     WhatsappService,
     CitizenshipDigitalService,
     BcbService,
-    ImportGatewayService,
+    ImportCsvService,
   ],
   exports: [
     ClientsModule,
@@ -46,8 +46,8 @@ import { HttpModule } from '@nestjs/axios';
     WhatsappService,
     CitizenshipDigitalService,
     BcbService,
+    ImportCsvService,
     HttpModule,
-    ImportGatewayService,
   ],
 })
 export class CommonModule {}
