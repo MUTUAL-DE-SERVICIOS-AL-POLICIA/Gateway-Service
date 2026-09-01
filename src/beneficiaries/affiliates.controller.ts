@@ -3,9 +3,9 @@ import {
   Body,
   Controller,
   Delete,
-  Patch,
   Get,
   Param,
+  Patch,
   Post,
   Res,
   UploadedFiles,
@@ -14,18 +14,18 @@ import {
 } from '@nestjs/common';
 import { AnyFilesInterceptor } from '@nestjs/platform-express';
 import {
+  ApiBearerAuth,
   ApiBody,
   ApiConsumes,
   ApiOperation,
   ApiParam,
   ApiResponse,
   ApiTags,
-  ApiBearerAuth,
 } from '@nestjs/swagger';
 import { Response } from 'express';
 import { AuthGuard } from 'src/auth/guards';
 import { FtpService, NatsService } from 'src/common';
-import { Records } from 'src/records/records.interceptor';
+import { Records } from 'src/common/services/records.service';
 
 @ApiTags('beneficiaries')
 @ApiBearerAuth('msp')
