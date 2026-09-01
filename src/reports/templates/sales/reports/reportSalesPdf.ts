@@ -9,13 +9,15 @@ import {
   buildSalesReportHeader,
 } from "../cabeceras";
 
-const PAGE_WIDTH = 792;
-const PAGE_HORIZONTAL_MARGIN = 40;
+const PAGE_WIDTH = 612;
+const PAGE_HORIZONTAL_MARGIN = 20;
 const PAGE_FOOTER_MARGIN = 42;
 
-const HEADER_TOP_MARGIN = 28;
+const HEADER_TOP_MARGIN = 20;
 const CONTENT_TOP_MARGIN = 105;
-const AVAILABLE_PAGE_WIDTH = PAGE_WIDTH - PAGE_HORIZONTAL_MARGIN * 2;
+
+const AVAILABLE_PAGE_WIDTH =
+  PAGE_WIDTH - PAGE_HORIZONTAL_MARGIN * 2;
 
 const COLORS = {
   primary: "#4A4A4A",
@@ -29,25 +31,32 @@ const COLORS = {
 };
 
 /**
- * Los anchos suman 636 puntos.
- * El espacio restante se utiliza para padding y bordes de PDFMake.
+ * LETTER vertical:
+ *
+ * Ancho página: 612
+ * Márgenes: 40 + 40
+ * Disponible: 532
+ *
+ * Los anchos suman exactamente 532 puntos.
  */
 const SALES_TABLE_WIDTHS = [
-  55, // Código
-  68, // Fecha y hora
-  130, // Titular
-  140, // Servicio
-  32, // Cantidad
-  42, // Precio
-  62, // Tipo de pago
-  45, // Total
-  62, // Recepcionista
+  45,  // Fecha y hora
+  50,  // Código
+  115,  // Titular
+  147,  // Concepto
+  60,  // Tipo de pago
+  55,  // Total
+  55,  // Recepcionista
 ];
 
-export function reportSales(data: SalesListData): TDocumentDefinitions {
+export function reportSales(
+  data: SalesListData,
+): TDocumentDefinitions {
   return {
     pageSize: "LETTER",
-    pageOrientation: "landscape",
+
+    // Ahora el documento es vertical
+    pageOrientation: "portrait",
 
     pageMargins: [
       PAGE_HORIZONTAL_MARGIN,
@@ -58,8 +67,14 @@ export function reportSales(data: SalesListData): TDocumentDefinitions {
 
     header: () => buildPageHeader(data),
 
-    footer: (currentPage: number, pageCount: number) =>
-      buildPageFooter(currentPage, pageCount, data),
+    footer: (
+      currentPage: number,
+      pageCount: number,
+    ) => buildPageFooter(
+      currentPage,
+      pageCount,
+      data,
+    ),
 
     defaultStyle: {
       font: "Helvetica",
@@ -67,11 +82,13 @@ export function reportSales(data: SalesListData): TDocumentDefinitions {
       color: COLORS.text,
     },
 
-    content: [buildSalesContent(data.sales)],
+    content: [
+      buildSalesContent(data.sales),
+    ],
 
     styles: {
       tableHeader: {
-        fontSize: 7,
+        fontSize: 6.5,
         bold: true,
         color: COLORS.headerText,
         fillColor: COLORS.primary,
@@ -79,7 +96,7 @@ export function reportSales(data: SalesListData): TDocumentDefinitions {
       },
 
       tableCell: {
-        fontSize: 6.5,
+        fontSize: 5.8,
         color: COLORS.text,
         lineHeight: 1.05,
       },
@@ -99,7 +116,9 @@ export function reportSales(data: SalesListData): TDocumentDefinitions {
   };
 }
 
-function buildPageHeader(data: SalesListData): Content {
+function buildPageHeader(
+  data: SalesListData,
+): Content {
   return {
     margin: [
       PAGE_HORIZONTAL_MARGIN,
@@ -114,7 +133,8 @@ function buildPageHeader(data: SalesListData): Content {
 
         pageWidth: PAGE_WIDTH,
 
-        pageHorizontalMargin: PAGE_HORIZONTAL_MARGIN,
+        pageHorizontalMargin:
+          PAGE_HORIZONTAL_MARGIN,
       }),
     ],
   } as Content;
@@ -123,10 +143,15 @@ function buildPageHeader(data: SalesListData): Content {
 function buildPageFooter(
   currentPage: number,
   pageCount: number,
-  data: SalesListData
+  data: SalesListData,
 ): Content {
   return {
-    margin: [PAGE_HORIZONTAL_MARGIN, 7, PAGE_HORIZONTAL_MARGIN, 0],
+    margin: [
+      PAGE_HORIZONTAL_MARGIN,
+      7,
+      PAGE_HORIZONTAL_MARGIN,
+      0,
+    ],
 
     stack: [
       {
@@ -142,7 +167,12 @@ function buildPageFooter(
           },
         ],
 
-        margin: [0, 0, 0, 5],
+        margin: [
+          0,
+          0,
+          0,
+          5,
+        ],
       },
 
       {
@@ -172,7 +202,9 @@ function buildPageFooter(
             text: `Página ${currentPage} de ${pageCount}`,
 
             alignment: "right",
+
             fontSize: 6.5,
+
             color: COLORS.muted,
           },
         ],
@@ -181,42 +213,57 @@ function buildPageFooter(
   } as Content;
 }
 
-function buildSalesContent(sales: SalesListItem[]): Content {
+function buildSalesContent(
+  sales: SalesListItem[],
+): Content {
   return {
-    stack: [buildSalesTable(sales)],
+    stack: [
+      buildSalesTable(sales),
+    ],
   } as Content;
 }
 
-function buildSalesTable(sales: SalesListItem[]): Content {
-  
+function buildSalesTable(
+  sales: SalesListItem[],
+): Content {
   const body: unknown[][] = [
     [
-      headerCell("CÓDIGO"),
       headerCell("FECHA - HORA"),
+      headerCell("CÓDIGO"),
       headerCell("TITULAR"),
-      headerCell("SERVICIO"),
-      headerCell("CANT."),
-      headerCell("PRECIO"),
+      headerCell("CONCEPTO"),
       headerCell("TIPO PAGO"),
       headerCell("TOTAL"),
       headerCell("RECEPCIONISTA"),
     ],
 
-    ...sales.map((sale, index) => rowCells(sale, index)),
+    ...sales.map((sale, index) =>
+      rowCells(sale, index),
+    ),
   ];
 
   if (sales.length === 0) {
     body.push([
       {
-        text: "No existen ventas registradas para el rango de fechas seleccionado.",
+        text:
+          "No existen ventas registradas para el rango de fechas seleccionado.",
 
-        colSpan: 9,
+        colSpan: 7,
+
         alignment: "center",
+
         fontSize: 7,
+
         color: COLORS.muted,
+
         fillColor: COLORS.emptyRow,
 
-        margin: [4, 8, 4, 8],
+        margin: [
+          4,
+          8,
+          4,
+          8,
+        ],
       },
 
       {},
@@ -231,50 +278,89 @@ function buildSalesTable(sales: SalesListItem[]): Content {
   }
 
   return {
-    margin: [0, 0, 0, 0],
+    margin: [
+      0,
+      0,
+      0,
+      0,
+    ],
 
     table: {
       headerRows: 1,
+
       widths: SALES_TABLE_WIDTHS,
+
       body,
+
       dontBreakRows: true,
+
       keepWithHeaderRows: 1,
     },
 
     layout: {
-      hLineWidth: (rowIndex: number, node: any) => {
-        const lastRow = node.table.body.length;
+      hLineWidth: (
+        rowIndex: number,
+        node: any,
+      ) => {
+        const lastRow =
+          node.table.body.length;
 
-        if (rowIndex === 0 || rowIndex === 1 || rowIndex === lastRow) {
+        if (
+          rowIndex === 0 ||
+          rowIndex === 1 ||
+          rowIndex === lastRow
+        ) {
           return 0.7;
         }
 
         return 0.35;
       },
 
-      vLineWidth: (columnIndex: number, node: any) => {
-        const lastColumn = node.table.widths.length;
+      vLineWidth: (
+        columnIndex: number,
+        node: any,
+      ) => {
+        const lastColumn =
+          node.table.widths.length;
 
-        if (columnIndex === 0 || columnIndex === lastColumn) {
+        if (
+          columnIndex === 0 ||
+          columnIndex === lastColumn
+        ) {
           return 0.7;
         }
 
         return 0.35;
       },
 
-      hLineColor: (rowIndex: number) => {
-        return rowIndex <= 1 ? COLORS.primaryDark : COLORS.grid;
+      hLineColor: (
+        rowIndex: number,
+      ) => {
+        return rowIndex <= 1
+          ? COLORS.primaryDark
+          : COLORS.grid;
       },
 
-      vLineColor: () => COLORS.grid,
+      vLineColor: () =>
+        COLORS.grid,
 
-      paddingLeft: () => 4,
+      paddingLeft: () => 3,
 
-      paddingRight: () => 4,
+      paddingRight: () => 3,
 
-      paddingTop: (rowIndex: number) => (rowIndex === 0 ? 4 : 3.2),
+      paddingTop: (
+        rowIndex: number,
+      ) =>
+        rowIndex === 0
+          ? 4
+          : 3,
 
-      paddingBottom: (rowIndex: number) => (rowIndex === 0 ? 4 : 3.2),
+      paddingBottom: (
+        rowIndex: number,
+      ) =>
+        rowIndex === 0
+          ? 4
+          : 3,
     },
   } as Content;
 }
@@ -282,41 +368,81 @@ function buildSalesTable(sales: SalesListItem[]): Content {
 function headerCell(text: string) {
   return {
     text,
+
     style: "tableHeader",
+
     alignment: "center",
+
     noWrap: true,
   };
 }
 
-function rowCells(sale: SalesListItem, index: number) {
-  const fillColor = index % 2 === 0 ? null : COLORS.alternateRow;
-  const products = getSaleProducts(sale);
+function rowCells(
+  sale: SalesListItem,
+  index: number,
+) {
+  const fillColor =
+    index % 2 === 0
+      ? null
+      : COLORS.alternateRow;
+
+  const products =
+    getSaleProducts(sale);
 
   return [
-    cell(sale.code, "center", true),
 
-    cell(formatDateTime(sale.receptionDate), "center", true),
+    cell(
+      formatDateTime(
+        sale.receptionDate,
+      ),
+      "center",
+      true,
+    ),
 
-    cell(sale.principalCustomer, "left", true),
+    cell(
+      sale.code,
+      "center",
+      true,
+    ),
 
-    productCell(products, "name", "left", true),
+    cell(
+      sale.principalCustomer,
+      "left",
+      true,
+    ),
 
-    productCell(products, "amount", "center"),
+    productCell(
+      products,
+      "name",
+      "left",
+      true,
+    ),
 
-    productCell(products, "price", "center"),
+    cell(
+      sale.paymentType,
+      "center",
+      true,
+    ),
 
-    cell(sale.paymentType, "center", true),
+    cell(
+      sale.total,
+      "right",
+      true,
+    ),
 
-    cell(sale.total, "right", true),
-
-    cell(sale.receptionist, "center"),
+    cell(
+      sale.receptionist,
+      "center",
+    ),
   ].map((value) => ({
     ...value,
     fillColor,
   }));
 }
 
-function getSaleProducts(sale: SalesListItem): SalesListProduct[] {
+function getSaleProducts(
+  sale: SalesListItem,
+): SalesListProduct[] {
   if (sale.products?.length) {
     return sale.products;
   }
@@ -333,46 +459,79 @@ function getSaleProducts(sale: SalesListItem): SalesListProduct[] {
 function productCell(
   products: SalesListProduct[],
   field: keyof SalesListProduct,
-  alignment: "left" | "center" | "right",
-  showBullet = false
+  alignment:
+    | "left"
+    | "center"
+    | "right",
+  showBullet = false,
 ) {
   return {
-    stack: products.map((product, index) => ({
-      text: showBullet
-        ? [
-            {
-              text: "• ",
-              bold: true,
-              color: COLORS.primaryDark,
-            },
-            {
-              text: fallback(String(product[field])),
-            },
-          ]
-        : fallback(String(product[field])),
-      style: "tableCell",
-      alignment,
-      margin: [
-        0,
-        index === 0 ? 0 : 1.5,
-        0,
-        index === products.length - 1 ? 0 : 1.5,
-      ],
-    })),
+    stack: products.map(
+      (product, index) => ({
+        text: showBullet
+          ? [
+              {
+                text: "",
+                bold: true,
+                color:
+                  COLORS.primaryDark,
+              },
+              {
+                text: fallback(
+                  String(
+                    product[field],
+                  ),
+                ),
+              },
+            ]
+          : fallback(
+              String(
+                product[field],
+              ),
+            ),
+
+        style: "tableCell",
+
+        alignment,
+
+        margin: [
+          0,
+          index === 0
+            ? 0
+            : 1.5,
+          0,
+          index ===
+          products.length - 1
+            ? 0
+            : 1.5,
+        ],
+      }),
+    ),
+
     verticalAlignment: "middle",
   };
 }
 
 function cell(
-  text: string | null | undefined,
-  alignment: "left" | "center" | "right" = "left",
-  noWrap = false
+  text:
+    | string
+    | null
+    | undefined,
+
+  alignment:
+    | "left"
+    | "center"
+    | "right" = "left",
+
+  noWrap = false,
 ) {
   return {
     text: fallback(text),
 
     style: "tableCell",
-    verticalAlignment: 'middle',
+
+    verticalAlignment:
+      "middle",
 
     alignment,
 
@@ -380,40 +539,66 @@ function cell(
   };
 }
 
-function formatDateTime(value: string | Date | null | undefined): string {
-  const date = parseDate(value);
+function formatDateTime(
+  value:
+    | string
+    | Date
+    | null
+    | undefined,
+): string {
+  const date =
+    parseDate(value);
 
   if (!date) {
     return "-";
   }
 
-  return new Intl.DateTimeFormat("es-BO", {
-    day: "2-digit",
-
-    month: "2-digit",
-
-    year: "numeric",
-
-    hour: "2-digit",
-
-    minute: "2-digit",
-
-    hour12: false,
-  }).format(date);
+  return new Intl.DateTimeFormat(
+    "es-BO",
+    {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    },
+  ).format(date);
 }
 
-function parseDate(value: string | Date | null | undefined): Date | null {
+function parseDate(
+  value:
+    | string
+    | Date
+    | null
+    | undefined,
+): Date | null {
   if (!value) {
     return null;
   }
 
-  const date = value instanceof Date ? value : new Date(value);
+  const date =
+    value instanceof Date
+      ? value
+      : new Date(value);
 
-  return Number.isNaN(date.getTime()) ? null : date;
+  return Number.isNaN(
+    date.getTime(),
+  )
+    ? null
+    : date;
 }
 
-function fallback(value: string | null | undefined): string {
-  const normalized = value?.trim();
+function fallback(
+  value:
+    | string
+    | null
+    | undefined,
+): string {
+  const normalized =
+    value?.trim();
 
-  return normalized ? normalized : "-";
+  return normalized
+    ? normalized
+    : "-";
 }

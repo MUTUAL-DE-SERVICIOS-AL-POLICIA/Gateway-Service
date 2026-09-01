@@ -944,10 +944,6 @@ function paymentType(data: SalesReceiptData): string {
   return data.payment.type?.name ?? 'No especificado';
 }
 
-function paymentLocation(data: SalesReceiptData): string {
-  return data.voucher.paymentLocation ?? 'No especificado';
-}
-
 function receiptDate(data: SalesReceiptData): string | Date {
   return data.voucher.depositDate ?? data.voucher.createdAt ?? data.sale.createdAt;
 }
@@ -1057,7 +1053,7 @@ function numberToSpanishUnderMillion(value: number): string {
     'TRECE',
     'CATORCE',
     'QUINCE',
-    'DIECISEIS',
+    'DIECISÉIS',
     'DIECISIETE',
     'DIECIOCHO',
     'DIECINUEVE',

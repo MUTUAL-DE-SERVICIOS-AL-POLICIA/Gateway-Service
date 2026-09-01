@@ -24,7 +24,7 @@ export class AuthBcbGuard implements CanActivate {
       const decoded = await this.nats.firstValue('authBcb.verifyJwt', token!);
       request.user = decoded;
       return true;
-    } catch (err) {
+    } catch {
       throw new UnauthorizedException({ error: true, message: 'Sin autorización' });
     }
   }

@@ -1,19 +1,19 @@
 import {
-  Body,
-  Controller,
-  Get,
-  Param,
-  ParseIntPipe,
-  ParseUUIDPipe,
-  Post,
-  Query,
-  UseGuards,
-  UseInterceptors,
+    Body,
+    Controller,
+    Get,
+    Param,
+    ParseIntPipe,
+    ParseUUIDPipe,
+    Post,
+    Query,
+    UseGuards,
+    UseInterceptors,
 } from '@nestjs/common';
-import { ApiResponse, ApiTags, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { AuthGuard } from 'src/auth/guards/auth.guard';
 import { FtpService, NatsService } from 'src/common';
-import { Records } from 'src/records/records.interceptor';
+import { Records } from 'src/common/services/records.service';
 import { FilteredPaginationDto } from './dto';
 
 @ApiBearerAuth('msp')

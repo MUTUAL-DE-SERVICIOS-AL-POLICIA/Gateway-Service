@@ -7,7 +7,7 @@ export { FtpService } from './services/ftp.service';
 export { NatsService } from './services/nats.service';
 export { SmsService } from './services/sms.service';
 export { WhatsappService } from './services/whatsapp.service';
+export { ImportCsvService } from './services/import-csv.service';
 
 export { CitizenshipDigitalService } from './services/citizenshipDigital.service';
 export { BcbService } from './services/bcb.service';
-export { ImportGatewayService } from './services/import-gateway.service';

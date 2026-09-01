@@ -1,22 +1,21 @@
 import {
-  Body,
-  Controller,
-  Delete,
-  Get,
-  Post,
-  Req,
-  Res,
-  UseGuards,
-  UseInterceptors,
+    Body,
+    Controller,
+    Delete,
+    Get,
+    Post,
+    Req,
+    Res,
+    UseGuards,
+    UseInterceptors,
 } from '@nestjs/common';
-import { ApiBody, ApiOperation, ApiResponse, ApiTags, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Response } from 'express';
 import { AuthAppMobileGuard } from 'src/auth/guards';
 import { NatsService } from 'src/common';
-import { Records } from 'src/records/records.interceptor';
-import { LoginUserDto, LoginAppMobileDto } from './dto';
+import { Records } from 'src/common/services/records.service';
+import { LoginAppMobileDto, LoginUserDto } from './dto';
 import { CurrentUser } from './interfaces/current-user.interface';
-import { AuthBcbGuard } from 'src/auth/guards';
 
 @ApiBearerAuth('msp')
 @ApiTags('auth')
@@ -56,7 +55,7 @@ export class AuthController {
         user: data.user,
         access: data.access,
       };
-    } catch (error) {
+    } catch {
       return {
         error: true,
         message: 'Credenciales inválidas',

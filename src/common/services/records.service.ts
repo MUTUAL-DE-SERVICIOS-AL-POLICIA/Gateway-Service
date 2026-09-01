@@ -22,7 +22,7 @@ export class Records implements NestInterceptor {
   public isWSQ(str: string): boolean {
     try {
       const buf = Buffer.from(str, 'base64');
-      return buf.length > 2 && buf[0] === 0xff && buf[1] === 0xa0; // WSQ header
+      return buf.length > 2 && buf[0] === 0xff && buf[1] === 0xa0;
     } catch {
       return false;
     }

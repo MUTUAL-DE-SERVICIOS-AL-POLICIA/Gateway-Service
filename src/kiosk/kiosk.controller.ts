@@ -1,24 +1,24 @@
+import { HttpService } from '@nestjs/axios';
 import {
-  Body,
-  Controller,
-  Get,
-  Param,
-  Headers,
-  Post,
-  UploadedFiles,
-  UseInterceptors,
-  UseGuards,
+    Body,
+    Controller,
+    Get,
+    Headers,
+    Param,
+    Post,
+    UploadedFiles,
+    UseGuards,
+    UseInterceptors,
 } from '@nestjs/common';
+import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { ApiBody, ApiConsumes, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { firstValueFrom } from 'rxjs';
-import { PvtEnvs } from 'src/config';
-import { HttpService } from '@nestjs/axios';
 import { HashPvtGuard } from 'src/auth/guards/hashpvt.guard';
+import { FtpService, NatsService } from 'src/common';
+import { Records } from 'src/common/services/records.service';
+import { PvtEnvs } from 'src/config';
 import { SaveDataKioskAuthDto } from './dto/save-data-kiosk-auth.dto';
-import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { UploadPhotosDto } from './dto/save-photos.dto';
-import { NatsService, FtpService } from 'src/common';
-import { Records } from 'src/records/records.interceptor';
 
 @ApiTags('kiosk')
 @UseInterceptors(Records)
@@ -116,16 +116,8 @@ export class KioskController {
         this.httpService.get(url, { headers: { authorization } }),
       );
       return data;
-    } catch (error) {
-      if (error.response?.data) {
-        return error.response.data;
-      }
-      return {
-        error: true,
-        canCreate: false,
-        message: 'Error al conectar con el servidor',
-        data: null,
-      };
+    } catch {
+      return ;
     }
   }
 
@@ -138,14 +130,10 @@ export class KioskController {
         this.httpService.get(url, { headers: { authorization } }),
       );
       return data;
-    } catch (error) {
-      if (error.response?.data) {
-        return error.response.data;
-      }
+    } catch {
       return {
         error: true,
-        message: 'Error al obtener el complemento económico',
-        data: null,
+        message: 'Error al obtener complemento',
       };
     }
   }
@@ -159,14 +147,10 @@ export class KioskController {
         this.httpService.post(url, body, { headers: { authorization } }),
       );
       return data;
-    } catch (error) {
-      if (error.response?.data) {
-        return error.response.data;
-      }
+    } catch {
       return {
         error: true,
-        message: 'Error al crear el complemento económico',
-        data: null,
+        message: 'Error al crear complemento',
       };
     }
   }
@@ -177,23 +161,30 @@ export class KioskController {
     description: 'Obtener préstamos de un afiliado',
   })
   async getAffiliateLoans(@Param('identityCard') identityCard: string) {
-    let ecoComResponse: any = null;
-    let loansResponse: any = null;
     const ecoComUrl = `${PvtEnvs.PvtBeApiServer}/kioskoComplemento?ci=${identityCard}`;
     const loansUrl = `${PvtEnvs.PvtBackendApiServer}/kiosk/verify_loans/${identityCard}`;
+
+    let ecoComResponse: any;
+    let loansResponse: any;
+
     try {
-      const { data } = await firstValueFrom(this.httpService.get(ecoComUrl));
+      const { data } = await firstValueFrom(
+        this.httpService.get(ecoComUrl),
+      );
+
       ecoComResponse = data;
     } catch (error) {
       ecoComResponse = {
         error: true,
         message: error || 'Error al obtener complemento',
       };
-      
     }
 
     try {
-      const { data } = await firstValueFrom(this.httpService.get(loansUrl));
+      const { data } = await firstValueFrom(
+        this.httpService.get(loansUrl),
+      );
+
       loansResponse = data;
     } catch (error) {
       loansResponse = {
@@ -201,14 +192,19 @@ export class KioskController {
         message: error || 'Error al obtener préstamos',
       };
     }
+
     return {
       ecoCom: {
         canShow: !ecoComResponse.error,
         canCreate: ecoComResponse.canCreate,
         message: ecoComResponse.message,
       },
-      loans: { canShow: loansResponse.hasLoan },
-      contributions: { canShow: true },
+      loans: {
+        canShow: loansResponse.hasLoan,
+      },
+      contributions: {
+        canShow: true,
+      },
     };
   }
 }

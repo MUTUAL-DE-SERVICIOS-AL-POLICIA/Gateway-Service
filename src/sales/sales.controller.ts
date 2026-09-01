@@ -1,40 +1,41 @@
 import {
-  BadRequestException,
+  Body,
   Controller,
   Get,
   Param,
   ParseIntPipe,
+  ParseUUIDPipe,
+  Post,
   Query,
   Req,
   Res,
   UseGuards,
-  Post,
-  ParseUUIDPipe,
-  Body
+  UseInterceptors
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
+  ApiBody,
   ApiOperation,
   ApiParam,
   ApiProduces,
   ApiQuery,
   ApiResponse,
   ApiTags,
-  ApiBody,
 } from '@nestjs/swagger';
 import { Request, Response } from 'express';
+import { AuthGuard } from 'src/auth/guards';
 import { NatsService } from 'src/common';
+import { Records } from 'src/common/services/records.service';
 import {
   PDF_CONTENT_TYPE,
-  ReportFormat,
-  XLSX_CONTENT_TYPE,
+  XLSX_CONTENT_TYPE
 } from 'src/reports/interfaces/common/report-format.type';
 import { ReportsSalesService } from 'src/reports/services/reports.sales.service';
-import { AuthGuard } from 'src/auth/guards';
 
 @ApiTags('sales')
 @ApiBearerAuth('msp')
 @UseGuards(AuthGuard)
+@UseInterceptors(Records)
 @Controller('sales')
 export class SalesController {
   constructor(
@@ -58,6 +59,15 @@ export class SalesController {
   })
   async groupProducts(@Param('groupId') groupId: number) {
     return this.nats.send('sales.groupProducts', { groupId });
+  }
+
+  @Get('groups/:groupIds')
+  @ApiResponse({
+    status: 200,
+    description: 'Obtener los productos de diferentes grupos de ventas',
+  })
+  async groupsCheck(@Param('groupIds') groupIds: string) {
+    return this.nats.send('sales.groupsCheck', { groupIds });
   }
 
   @Get(':personUuid/forCreatingSale')
@@ -201,7 +211,7 @@ export class SalesController {
     res.send(receipt.buffer);
   }
 
-  @Get('reports/sales-list')
+  @Get('reports/allSales')
   @ApiOperation({ summary: 'Generar lista de ventas en PDF o Excel' })
   @ApiQuery({
     name: 'dateFrom',
@@ -220,6 +230,13 @@ export class SalesController {
     example: 'xlsx',
     description: 'Formato de salida. El valor predeterminado es pdf.',
   })
+  @ApiQuery({
+
+    name: 'groupId',
+    required: false,
+    type: Number,
+    example: 1,
+  })
   @ApiProduces(PDF_CONTENT_TYPE, XLSX_CONTENT_TYPE)
   @ApiResponse({
     status: 200,
@@ -229,49 +246,34 @@ export class SalesController {
       format: 'binary',
     },
   })
-  async salesList(
+  async reportAllSales(
     @Query('dateFrom') dateFrom: string,
     @Query('dateTo') dateTo: string,
-    @Query('format') format: string | undefined,
+    @Query('groupIds') groupIds: string,
+    @Query('format') format: string,
     @Req() req: Request & { user?: { username?: string; name?: string } },
     @Res() res: Response,
   ) {
-    if (!dateFrom || !dateTo) {
-      throw new BadRequestException({
-        error: true,
-        message: 'Debe enviar dateFrom y dateTo para generar el reporte.',
-      });
-    }
-    const normalizedFormat = String(format ?? 'pdf')
-      .trim()
-      .toLowerCase();
-    if (!['pdf', 'xlsx'].includes(normalizedFormat)) {
-      throw new BadRequestException({
-        error: true,
-        message: 'El formato debe ser pdf o xlsx.',
-      });
-    }
-    const dataSale = await this.nats.firstValue('sales.list', {
+
+    const filters = {
       dateFrom,
       dateTo,
-    });
-    const reportData = {
-      ...dataSale.data,
-      metadata: {
-        ...dataSale.data.metadata,
-        generatedBy: req.user?.username ?? req.user?.name,
-      },
+      groupIds,
     };
-    const report =
-      (normalizedFormat as ReportFormat) === 'xlsx'
-        ? await this.reportsSalesService.generateSalesListXlsx(reportData)
-        : await this.reportsSalesService.generateSalesListPdf(reportData);
-    res.set({
-      'Content-Type': report.contentType,
-      'Content-Disposition': `${report.disposition}; filename="${report.fileName}"`,
-      'Content-Length': report.buffer.length,
-    });
-    res.send(report.buffer);
+
+    const dataSale = await this.nats.firstValue('sales.reportAllSales', filters);
+
+    // const report = (normalizedFormat as ReportFormat) === 'xlsx'
+    //     ? await this.reportsSalesService.generateSalesListXlsx(reportData)
+    //     : await this.reportsSalesService.generateSalesListPdf(reportData);
+
+    // res.set({
+    //   'Content-Type': report.contentType,
+    //   'Content-Disposition': `${report.disposition}; filename="${report.fileName}"`,
+    //   'Content-Length': report.buffer.length,
+    // });
+
+    // res.send(report.buffer);
   }
 
   @Get(':qrId/qrImage')
@@ -298,4 +300,23 @@ export class SalesController {
   async personRecords(@Param('personId', ParseIntPipe) personId: number) {
     return this.nats.firstValue('sales.personSalesRecords', { personId });
   }
+
+  @Get('forGenerateReport')
+  @ApiResponse({
+    status: 200,
+    description: 'Obtiene los datos necesario para generar diferentes reporte',
+  })
+  async forGenerateReport() {
+    return this.nats.send('sales.forGenerateReport', { });
+  }
+
+  @Get('cancel/:saleId')
+  @ApiResponse({
+    status: 200,
+    description: 'Cancela una venta',
+  })
+  async cancelSale(@Param('saleId') saleId: string) {
+    return this.nats.send('sales.cancelSale', { saleId });
+  }
+
 }

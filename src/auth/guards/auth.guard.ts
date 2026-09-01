@@ -2,7 +2,6 @@ import {
   CanActivate,
   ExecutionContext,
   Injectable,
-  Logger,
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -12,7 +11,6 @@ import { NatsService } from 'src/common';
 
 @Injectable()
 export class AuthGuard implements CanActivate {
-  private readonly logger = new Logger('AuthGuard');
 
   constructor(
     private readonly nats: NatsService,
@@ -42,7 +40,7 @@ export class AuthGuard implements CanActivate {
       const { username, name } = await this.nats.firstValue('auth.verify.token', token!);
       request.user = { username, name };
       return true;
-    } catch (err) {
+    } catch {
       throw new UnauthorizedException({ error: true, message: 'Sin autorización' });
     }
   }

@@ -20,11 +20,10 @@ export class ReportsSalesService {
 
   async generateSalesHeaderPreview(): Promise<ReportFileResult> {
     const previewData: SalesHeaderPreviewData = {
-      institutionName: 'MUTUAL DE SERVICIOS AL POLICIA',
+      institutionName: 'MUTUAL DE SERVICIOS AL POLICÍA',
       institutionShortName: 'MUSERPOL',
       title: 'REPORTE GENERAL DE VENTAS',
       generatedAt: new Date(),
-      generatedBy: 'dgbautista',
       dateFrom: '2026-07-01T00:00:00-04:00',
       dateTo: '2026-07-10T23:59:59-04:00',
       description: 'Vista previa de cabecera reutilizable para reportes de ventas.',
