@@ -253,24 +253,6 @@ export class FtpService {
     }
   }
 
-  async removeDataTmp(path: string, name: string) {
-    try {
-      const tempDir = '/tmp/' + path;
-      const filePath = servicePath.join(tempDir, name);
-
-      if (!fs.existsSync(filePath)) {
-        return { statusRemoved: true, message: 'Data tmp not found' };
-      }
-
-      fs.unlinkSync(filePath);
-      this.logger.log(`Data removed from ${filePath} successfully`);
-
-      return { statusRemoved: true, message: 'Data tmp removed successfully' };
-    } catch (error) {
-      this.logger.error('Failed to remove temp data:', error);
-    }
-  }
-
   async onDestroy() {
     await this.client.close();
     this.logger.log('FTP connection closed');
