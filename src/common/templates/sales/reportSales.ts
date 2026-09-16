@@ -1,6 +1,5 @@
 import { Content, TDocumentDefinitions } from 'pdfmake/interfaces';
 import { buildHeader, HeaderData } from '../header';
-import { buildFooter } from '../footer';
 
 export interface SalesReportItem {
   'FECHA Y HORA': string;
