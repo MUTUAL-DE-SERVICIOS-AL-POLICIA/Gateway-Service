@@ -92,11 +92,6 @@ export class CommonController {
     return await this.ftp.getDataTmp(data.path, data.name);
   }
 
-  @MessagePattern('ftp.removeDataTmp')
-  async removeDataTmp(data: { path: string; name: string }) {
-    return await this.ftp.removeDataTmp(data.path, data.name);
-  }
-
   @MessagePattern('ftp.removeFile')
   async removeFile(data: string[]) {
     return await this.ftp.removeFile(data);
@@ -169,7 +164,7 @@ export class CommonController {
   @ApiOperation({ summary: 'Crear cuenta BCB' })
   @ApiBody({
     description:
-      'Datos de la cuenta a registrar en BCB. eifCuenta es la cuenta de la Entidad Financiera; cta no se envia en creacion, lo devuelve BCB como cuenta transitoria.',
+      'Datos de la cuenta a registrar en BCB. eifCuenta es la cuenta de la Entidad Financiera; cta no se envía en creación, lo devuelve BCB como cuenta transitoria.',
     required: true,
     schema: {
       type: 'object',
@@ -177,22 +172,22 @@ export class CommonController {
       properties: {
         eif: {
           type: 'string',
-          description: 'Codigo del participante en el MLD de la Entidad Financiera.',
+          description: 'Código del participante en el MLD de la Entidad Financiera.',
           example: 'MLD1014',
         },
         eifCuenta: {
           type: 'string',
-          description: 'Numero de cuenta de la Entidad Financiera.',
+          description: 'Número de cuenta de la Entidad Financiera.',
           example: '1505651746',
         },
         ciNitTitular: {
           type: 'string',
-          description: 'Numero de documento o NIT del titular de la cuenta.',
+          description: 'Número de documento o NIT del titular de la cuenta.',
           example: '234578021',
         },
         nombreTitular: {
           type: 'string',
-          description: 'Nombre o razon social del titular de la cuenta.',
+          description: 'Nombre o razón social del titular de la cuenta.',
           example: 'NAMEPRUEBA',
         },
         estado: {
@@ -232,7 +227,7 @@ export class CommonController {
       properties: {
         eif: {
           type: 'string',
-          description: 'Codigo del participante en el MLD de la Entidad Financiera.',
+          description: 'Código del participante en el MLD de la Entidad Financiera.',
           example: 'MLD1014',
         },
         eifCuenta: {
@@ -247,7 +242,7 @@ export class CommonController {
         },
         nombreTitular: {
           type: 'string',
-          description: 'Nombre o razon social del titular de la cuenta.',
+          description: 'Nombre o razón social del titular de la cuenta.',
           example: 'NAMEPRUEBA EDITADO',
         },
         estado: {
