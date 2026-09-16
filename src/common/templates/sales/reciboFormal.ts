@@ -1,9 +1,88 @@
 import { Content, ContentColumns, TDocumentDefinitions } from 'pdfmake/interfaces';
-import {
-  SalesReceiptData,
-  SaleProducts,
-} from '../../../interfaces/sales/sales-receipt-data.interface';
-import { formatSpanishDate } from '../../../utils/report-date.util';
+
+interface SalesReceiptData {
+  sale: {
+    code: string | null;
+    state: string;
+    personId: number;
+    receptionist: string;
+    createdAt: string | Date;
+  };
+  principalCustomer: {
+    fullName: string;
+    identityCard: string;
+  };
+  payer: {
+    customer: string | null;
+    identityCardCustomer: string | null;
+    isThirdParty: boolean;
+  };
+  voucher: {
+    receiptNumber: string | null;
+    description: string | null;
+    paymentTypeState: string;
+    depositDate: string | Date | null;
+    paymentLocation: string | null;
+    createdAt: string | Date;
+    total: string;
+  };
+  payment: {
+    type: {
+      name: string;
+      shortened: string;
+    } | null;
+  };
+  currency: {
+    symbol: string | null;
+  };
+  products: SaleProducts[];
+  totals: {
+    productCount: number;
+    quantity: number;
+    amount: string;
+  };
+  metadata?: {
+    source?: string;
+    generatedFor?: string;
+    generatedAt?: string;
+  };
+}
+
+interface SaleProducts {
+  productId: number;
+  name: string;
+  groupName: string;
+  fileNumbers: string[];
+  amount: number;
+  price: string;
+  total: string;
+}
+
+const MONTHS = [
+  'enero',
+  'febrero',
+  'marzo',
+  'abril',
+  'mayo',
+  'junio',
+  'julio',
+  'agosto',
+  'septiembre',
+  'octubre',
+  'noviembre',
+  'diciembre',
+];
+
+const formatSpanishDate = (value: string | Date | null | undefined): string => {
+  const date = value ? new Date(value) : new Date();
+
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+
+  return `${date.getUTCDate()} de ${MONTHS[date.getUTCMonth()]} de ${date.getUTCFullYear()}`;
+};
+
 
 const PAGE = {
   width: 612,
@@ -53,6 +132,7 @@ const COLORS = {
 };
 
 export function reciboFormal(data: SalesReceiptData): TDocumentDefinitions {
+
   const receiptX = PAGE.margin;
 
   const topReceiptY = PAGE.margin;
@@ -318,7 +398,7 @@ function buildHeader(data: SalesReceiptData): Content {
 
             stack: [
               {
-                text: 'MUTUAL DE SERVICIOS AL POLICIA',
+                text: 'MUTUAL DE SERVICIOS AL POLICÍA',
                 style: 'institution',
               },
 
@@ -463,7 +543,7 @@ function buildProductsBlock(data: SalesReceiptData): Content {
 
   if (showFolderNumber) {
     headerRow.push({
-      text: 'NROS. DE FOLDER',
+      text: 'NRO DE FOLDER',
       style: 'tableHeader',
       alignment: 'center',
       verticalAlignment: 'middle',
@@ -783,13 +863,7 @@ function buildFooter(data: SalesReceiptData): Content {
           },
         ],
         style: 'footerText',
-      },
-
-      {
-        text: metadataText(data),
-        style: 'metadata',
-        margin: [0, 2, 0, 0],
-      },
+      }
     ],
   } as Content;
 }
@@ -1148,14 +1222,4 @@ function fitSignatureName(value: string): string {
   const name = fallback(value).replace(/\s+/g, ' ').trim();
 
   return name.length > 38 ? `${name.slice(0, 35)}...` : name;
-}
-
-function metadataText(data: SalesReceiptData): string {
-  const metadata = [
-    data.metadata?.source ? `Fuente: ${data.metadata.source}` : null,
-
-    data.metadata?.generatedAt ? `Generado en: ${adminDate(data.metadata.generatedAt)}` : null,
-  ].filter(Boolean);
-
-  return metadata.length > 0 ? metadata.join('  |  ') : 'Información de generación no disponible.';
 }

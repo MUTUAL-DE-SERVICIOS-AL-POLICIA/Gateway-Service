@@ -24,13 +24,12 @@ import {
 } from '@nestjs/swagger';
 import { Response } from 'express';
 import { AuthGuard } from 'src/auth/guards';
-import { FtpService, NatsService } from 'src/common';
-import { Records } from 'src/common/services/records.service';
+import { FtpService, NatsService, RecordsService } from 'src/common';
 
 @ApiTags('beneficiaries')
 @ApiBearerAuth('msp')
 @UseGuards(AuthGuard)
-@UseInterceptors(Records)
+@UseInterceptors(RecordsService)
 @Controller('beneficiaries/affiliates')
 export class AffiliatesController {
   constructor(

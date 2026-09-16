@@ -22,25 +22,21 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
+import { stringify } from 'csv-stringify/sync';
 import { Request, Response } from 'express';
 import { AuthGuard } from 'src/auth/guards';
-import { NatsService } from 'src/common';
-import { Records } from 'src/common/services/records.service';
-import {
-  PDF_CONTENT_TYPE,
-  XLSX_CONTENT_TYPE
-} from 'src/reports/interfaces/common/report-format.type';
-import { ReportsSalesService } from 'src/reports/services/reports.sales.service';
+import { NatsService, PdfBufferService, RecordsService } from 'src/common';
+import { reciboFormal, reportSales } from 'src/common/templates';
 
 @ApiTags('sales')
 @ApiBearerAuth('msp')
 @UseGuards(AuthGuard)
-@UseInterceptors(Records)
+@UseInterceptors(RecordsService)
 @Controller('sales')
 export class SalesController {
   constructor(
     private readonly nats: NatsService,
-    private readonly reportsSalesService: ReportsSalesService,
+    private readonly pdfBuffer: PdfBufferService,
   ) { }
 
   @Get('search/:value/:type')
@@ -138,8 +134,7 @@ export class SalesController {
     },
   })
   async createSale(@Body() body: any) {
-    const response = await this.nats.firstValue('sales.createSale', body);
-    return response;
+    return await this.nats.firstValue('sales.createSale', body);
   }
 
   @Get(':personId/sales')
@@ -179,7 +174,6 @@ export class SalesController {
   }
 
 
-
   @Get('voucherPdf/:saleId')
   @ApiOperation({ summary: 'Generar recibo oficial de venta en PDF' })
   @ApiParam({ name: 'saleId', type: Number, example: 1 })
@@ -196,19 +190,21 @@ export class SalesController {
     @Param('saleId', ParseIntPipe) saleId: number,
     @Res() res: Response,
   ) {
+
     const dataSale = await this.nats.firstValue('sales.voucherPdf', {
       saleId,
     });
 
-    const receipt = await this.reportsSalesService.generateSalesReceiptPdf(dataSale.data);
+    const documentDefinition = reciboFormal(dataSale.data);
+    const buffer = await this.pdfBuffer.generatePdfBuffer(documentDefinition);
 
     res.set({
-      'Content-Type': receipt.contentType,
-      'Content-Disposition': `${receipt.disposition}; filename="${receipt.fileName}"`,
-      'Content-Length': receipt.buffer.length,
+      'Content-Type': "application/pdf",
+      'Content-Disposition': `inline; filename="recibo de venta"`,
+      'Content-Length': buffer.length,
     });
 
-    res.send(receipt.buffer);
+    res.send(buffer);
   }
 
   @Get('reports/allSales')
@@ -224,20 +220,18 @@ export class SalesController {
     example: '2026-07-13',
   })
   @ApiQuery({
-    name: 'format',
-    required: false,
-    enum: ['pdf', 'xlsx'],
-    example: 'xlsx',
-    description: 'Formato de salida. El valor predeterminado es pdf.',
-  })
-  @ApiQuery({
-
-    name: 'groupId',
+    name: 'productIds',
     required: false,
     type: Number,
     example: 1,
   })
-  @ApiProduces(PDF_CONTENT_TYPE, XLSX_CONTENT_TYPE)
+  @ApiQuery({
+    name: 'format',
+    required: false,
+    enum: ['pdf', 'csv'],
+    example: 'csv',
+    description: 'Formato de salida. El valor predeterminado es pdf.',
+  })
   @ApiResponse({
     status: 200,
     description: 'Archivo PDF o XLSX de la lista de ventas',
@@ -249,7 +243,7 @@ export class SalesController {
   async reportAllSales(
     @Query('dateFrom') dateFrom: string,
     @Query('dateTo') dateTo: string,
-    @Query('groupIds') groupIds: string,
+    @Query('productIds') productIds: string,
     @Query('format') format: string,
     @Req() req: Request & { user?: { username?: string; name?: string } },
     @Res() res: Response,
@@ -258,22 +252,39 @@ export class SalesController {
     const filters = {
       dateFrom,
       dateTo,
-      groupIds,
+      productIds,
+      user: req.user?.username,
     };
 
-    const dataSale = await this.nats.firstValue('sales.reportAllSales', filters);
+    const { error, message, data } =
+      await this.nats.firstValue('sales.report.allSales', filters);
 
-    // const report = (normalizedFormat as ReportFormat) === 'xlsx'
-    //     ? await this.reportsSalesService.generateSalesListXlsx(reportData)
-    //     : await this.reportsSalesService.generateSalesListPdf(reportData);
+    if (error) {
+      return res.status(500).json({ message });
+    }
 
-    // res.set({
-    //   'Content-Type': report.contentType,
-    //   'Content-Disposition': `${report.disposition}; filename="${report.fileName}"`,
-    //   'Content-Length': report.buffer.length,
-    // });
+    const nameFile = 'reporte-ventas'
 
-    // res.send(report.buffer);
+    if (format === 'csv') {
+      const csv = stringify(data.reportData, { header: true });
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="${nameFile}.csv"`,
+      );
+      return res.send(csv);
+    }
+
+    if(format === 'pdf') {
+      const documentDefinition = await reportSales(data);
+      const buffer = await this.pdfBuffer.generatePdfBuffer(documentDefinition);
+      res.set({
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `attachment; filename="${nameFile}.pdf"`,
+        'Content-Length': buffer.length,
+      });
+      return res.send(buffer);
+    }
   }
 
   @Get(':qrId/qrImage')
@@ -316,6 +327,7 @@ export class SalesController {
     description: 'Cancela una venta',
   })
   async cancelSale(@Param('saleId') saleId: string) {
+    
     return this.nats.send('sales.cancelSale', { saleId });
   }
 

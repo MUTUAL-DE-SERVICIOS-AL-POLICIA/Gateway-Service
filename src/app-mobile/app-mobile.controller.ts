@@ -15,12 +15,11 @@ import {
 import { ApiBody, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Response } from 'express';
 import { AuthAppMobileGuard, Public } from 'src/auth/guards';
-import { NatsService } from 'src/common';
-import { Records } from 'src/common/services/records.service';
+import { NatsService, RecordsService } from 'src/common';
 
 @ApiTags('appMobile')
 @UseGuards(AuthAppMobileGuard)
-@UseInterceptors(Records)
+@UseInterceptors(RecordsService)
 @Controller('appMobile')
 export class AppMobileController {
   constructor(private readonly nats: NatsService) {}

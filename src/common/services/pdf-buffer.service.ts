@@ -1,10 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import pdfMake from 'pdfmake';
 import { TDocumentDefinitions } from 'pdfmake/interfaces';
-import { ReportRenderer } from './report-renderer.interface';
 
 @Injectable()
-export class PdfmakeRendererService implements ReportRenderer {
+export class PdfBufferService {
   constructor() {
     pdfMake.addFonts({
       Helvetica: {
@@ -14,13 +13,22 @@ export class PdfmakeRendererService implements ReportRenderer {
         bolditalics: 'Helvetica-BoldOblique',
       },
     });
+
     pdfMake.setLocalAccessPolicy((path) =>
-      ['Helvetica', 'Helvetica-Bold', 'Helvetica-Oblique', 'Helvetica-BoldOblique'].includes(path),
+      [
+        'Helvetica',
+        'Helvetica-Bold',
+        'Helvetica-Oblique',
+        'Helvetica-BoldOblique',
+      ].includes(path),
     );
+
     pdfMake.setUrlAccessPolicy(() => false);
   }
 
-  async generatePdfBuffer(documentDefinition: TDocumentDefinitions): Promise<Buffer> {
+  async generatePdfBuffer(
+    documentDefinition: TDocumentDefinitions,
+  ): Promise<Buffer> {
     const pdf = pdfMake.createPdf({
       defaultStyle: {
         font: 'Helvetica',

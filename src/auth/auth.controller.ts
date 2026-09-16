@@ -12,14 +12,13 @@ import {
 import { ApiBearerAuth, ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Response } from 'express';
 import { AuthAppMobileGuard } from 'src/auth/guards';
-import { NatsService } from 'src/common';
-import { Records } from 'src/common/services/records.service';
+import { NatsService, RecordsService } from 'src/common';
 import { LoginAppMobileDto, LoginUserDto } from './dto';
 import { CurrentUser } from './interfaces/current-user.interface';
 
 @ApiBearerAuth('msp')
 @ApiTags('auth')
-@UseInterceptors(Records)
+@UseInterceptors(RecordsService)
 @Controller('auth')
 export class AuthController {
   constructor(private readonly nats: NatsService) {}

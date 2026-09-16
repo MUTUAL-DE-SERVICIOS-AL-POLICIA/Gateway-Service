@@ -14,14 +14,13 @@ import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { ApiBody, ApiConsumes, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { firstValueFrom } from 'rxjs';
 import { HashPvtGuard } from 'src/auth/guards/hashpvt.guard';
-import { FtpService, NatsService } from 'src/common';
-import { Records } from 'src/common/services/records.service';
+import { FtpService, NatsService, RecordsService } from 'src/common';
 import { PvtEnvs } from 'src/config';
 import { SaveDataKioskAuthDto } from './dto/save-data-kiosk-auth.dto';
 import { UploadPhotosDto } from './dto/save-photos.dto';
 
 @ApiTags('kiosk')
-@UseInterceptors(Records)
+@UseInterceptors(RecordsService)
 @Controller('kiosk')
 export class KioskController {
   constructor(

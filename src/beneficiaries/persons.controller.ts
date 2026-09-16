@@ -12,14 +12,13 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { AuthGuard } from 'src/auth/guards/auth.guard';
-import { FtpService, NatsService } from 'src/common';
-import { Records } from 'src/common/services/records.service';
+import { FtpService, NatsService, RecordsService } from 'src/common';
 import { FilteredPaginationDto } from './dto';
 
 @ApiBearerAuth('msp')
 @ApiTags('beneficiaries')
 @UseGuards(AuthGuard)
-@UseInterceptors(Records)
+@UseInterceptors(RecordsService)
 @Controller('beneficiaries/persons')
 export class PersonsController {
   constructor(

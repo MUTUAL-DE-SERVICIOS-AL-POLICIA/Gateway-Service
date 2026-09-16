@@ -9,7 +9,6 @@ import { PvtBeModule } from './pvt-be/pvt-be.module';
 import { PvtStiModule } from './pvt-sti/pvt-sti.module';
 import { AppMobileModule } from './app-mobile/app-mobile.module';
 import { SalesModule } from './sales/sales.module';
-import { ReportsModule } from './reports/reports.module';
 import { CollectionsModule } from './collections/collections.module';
 
 @Module({
@@ -24,7 +23,6 @@ import { CollectionsModule } from './collections/collections.module';
     PvtStiModule,
     AppMobileModule,
     SalesModule,
-    ReportsModule,
     CollectionsModule,
   ],
 })

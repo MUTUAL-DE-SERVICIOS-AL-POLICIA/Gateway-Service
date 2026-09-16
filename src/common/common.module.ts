@@ -9,6 +9,7 @@ import {
   CitizenshipDigitalService,
   BcbService,
   ImportCsvService,
+  PdfBufferService,
 } from 'src/common';
 import { CommonController } from './common.controller';
 import { NotificationsController } from './notifications.controller';
@@ -37,6 +38,7 @@ import { HttpModule } from '@nestjs/axios';
     CitizenshipDigitalService,
     BcbService,
     ImportCsvService,
+    PdfBufferService,
   ],
   exports: [
     ClientsModule,
@@ -47,6 +49,7 @@ import { HttpModule } from '@nestjs/axios';
     CitizenshipDigitalService,
     BcbService,
     ImportCsvService,
+    PdfBufferService,
     HttpModule,
   ],
 })
