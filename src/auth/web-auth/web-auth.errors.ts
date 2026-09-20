@@ -7,6 +7,10 @@ export type WebAuthGatewayErrorCode =
   | 'WEB_AUTH_DISABLED'
   | 'AUTH_SERVICE_UNAVAILABLE'
   | 'OIDC_LOGIN_FAILED'
+  | 'INVALID_CLIENT_REQUEST'
+  | 'WEB_TOOL_UNAVAILABLE'
+  | 'WEB_CLIENT_ACCESS_DENIED'
+  | 'WEB_CLIENT_INVALID'
   | 'AUTH_UPSTREAM_ERROR';
 
 interface ErrorDefinition {
@@ -38,6 +42,22 @@ const definitions: Record<WebAuthGatewayErrorCode, ErrorDefinition> = {
   OIDC_LOGIN_FAILED: {
     status: HttpStatus.BAD_GATEWAY,
     message: 'OIDC login failed',
+  },
+  INVALID_CLIENT_REQUEST: {
+    status: HttpStatus.BAD_REQUEST,
+    message: 'Invalid web client request',
+  },
+  WEB_TOOL_UNAVAILABLE: {
+    status: HttpStatus.FORBIDDEN,
+    message: 'Web tool is unavailable',
+  },
+  WEB_CLIENT_ACCESS_DENIED: {
+    status: HttpStatus.FORBIDDEN,
+    message: 'Web client access was denied',
+  },
+  WEB_CLIENT_INVALID: {
+    status: HttpStatus.BAD_GATEWAY,
+    message: 'Web client response is invalid',
   },
   AUTH_UPSTREAM_ERROR: {
     status: HttpStatus.BAD_GATEWAY,

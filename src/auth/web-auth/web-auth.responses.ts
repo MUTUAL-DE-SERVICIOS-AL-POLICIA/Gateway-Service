@@ -1,5 +1,6 @@
 import {
   CheckWebSessionResponse,
+  EnsureWebClientContextResponse,
   ExchangeWebCodeResponse,
   PresentationIdentity,
   StartWebLoginResponse,
@@ -33,6 +34,18 @@ function expiration(value: unknown): number {
   if (!Number.isSafeInteger(value) || (value as number) <= 0)
     throw new InvalidWebAuthResponseError();
   return value as number;
+}
+
+function epochMilliseconds(value: unknown): number {
+  const parsed = expiration(value);
+  if (parsed < 1_000_000_000_000) throw new InvalidWebAuthResponseError();
+  return parsed;
+}
+
+function stringList(value: unknown): string[] {
+  if (!Array.isArray(value) || value.some((item) => typeof item !== 'string'))
+    throw new InvalidWebAuthResponseError();
+  return [...value];
 }
 
 function identity(value: unknown): PresentationIdentity {
@@ -100,5 +113,22 @@ export function sessionResponse(value: unknown): CheckWebSessionResponse {
     authenticated: true,
     identity: identity(source.identity),
     sessionExpiresAt: expiration(source.sessionExpiresAt),
+  };
+}
+
+export function clientContextResponse(value: unknown): EnsureWebClientContextResponse {
+  const source = record(value);
+  if (source.authenticated !== true) throw new InvalidWebAuthResponseError();
+  return {
+    authenticated: true,
+    currentTool: requiredString(source.currentTool),
+    currentClient: requiredString(source.currentClient),
+    identity: identity(source.identity),
+    realmRoles: stringList(source.realmRoles),
+    clientRoles: stringList(source.clientRoles),
+    groups: stringList(source.groups),
+    contextExpiresAt: epochMilliseconds(source.contextExpiresAt),
+    sessionExpiresAt: epochMilliseconds(source.sessionExpiresAt),
+    sessionAbsoluteExpiresAt: epochMilliseconds(source.sessionAbsoluteExpiresAt),
   };
 }

@@ -136,6 +136,153 @@ describe('WebAuthController', () => {
     expectNoCache(response.headers);
   });
 
+  it('takes sid only from its cookie and forwards the exact client ensure payload', async () => {
+    const upstream = clientContextFixture();
+    nats.firstValue.mockResolvedValueOnce(upstream);
+    const response = await request(app.getHttpServer())
+      .post('/api/auth/client/context')
+      .set('Cookie', `sid=${sid}`)
+      .send({ tool: 'beneficiary' })
+      .expect(200);
+    expect(nats.firstValue).toHaveBeenCalledWith(WebAuthPatterns.clientEnsure, {
+      sid,
+      tool: 'beneficiary',
+    });
+    expect(response.body).toEqual(upstream);
+    expect(response.headers['set-cookie']).toBeUndefined();
+    expectNoCache(response.headers);
+  });
+
+  it.each([
+    ['missing sid', undefined],
+    ['invalid sid', 'sid=invalid'],
+    ['ambiguous sid', `sid=${sid}; sid=${'b'.repeat(43)}`],
+  ])('rejects %s cookie without calling Auth', async (_name, cookie) => {
+    const pending = request(app.getHttpServer())
+      .post('/api/auth/client/context')
+      .send({ tool: 'beneficiary' });
+    if (cookie) pending.set('Cookie', cookie);
+    const response = await pending.expect(401);
+    expect(response.body.error.code).toBe('SESSION_INVALID');
+    expect(nats.firstValue).not.toHaveBeenCalled();
+    expect(response.headers['set-cookie']).toBeUndefined();
+    expectNoCache(response.headers);
+  });
+
+  it.each([
+    ['additional field', { tool: 'beneficiary', unexpected: true }],
+    ['sid in body', { tool: 'beneficiary', sid }],
+    ['clientId', { tool: 'beneficiary', clientId: 'beneficiary-interface' }],
+    ['audience', { tool: 'beneficiary', audience: 'beneficiary-interface' }],
+    ['resourceServer', { tool: 'beneficiary', resourceServer: 'beneficiary-interface' }],
+    ['origin selector', { tool: 'beneficiary', origin: 'https://example.test' }],
+    ['uppercase tool', { tool: 'Beneficiary' }],
+    ['leading digit', { tool: '1beneficiary' }],
+    ['invalid character', { tool: 'beneficiary_interface' }],
+    ['too long', { tool: `b${'a'.repeat(64)}` }],
+  ])('rejects client context body with %s', async (_name, body) => {
+    const response = await request(app.getHttpServer())
+      .post('/api/auth/client/context')
+      .set('Cookie', `sid=${sid}`)
+      .send(body)
+      .expect(400);
+    expect(response.body.error.code).toBe('INVALID_CLIENT_REQUEST');
+    expect(nats.firstValue).not.toHaveBeenCalled();
+    expect(response.headers['set-cookie']).toBeUndefined();
+    expectNoCache(response.headers);
+  });
+
+  it('allowlists the client context response and presentation identity', async () => {
+    const expected = clientContextFixture();
+    nats.firstValue.mockResolvedValueOnce({
+      ...expected,
+      identity: {
+        ...identity,
+        roles: ['must-not-leak'],
+        groups: ['must-not-leak'],
+      },
+      sid: 'must-not-leak',
+      accessToken: 'must-not-leak',
+      refreshToken: 'must-not-leak',
+      idToken: 'must-not-leak',
+      claims: { sensitive: true },
+      resourceServer: 'must-not-leak',
+    });
+    const response = await request(app.getHttpServer())
+      .post('/api/auth/client/context')
+      .set('Cookie', `sid=${sid}`)
+      .send({ tool: 'beneficiary' })
+      .expect(200);
+    expect(response.body).toEqual(expected);
+    expect(response.text).not.toContain('must-not-leak');
+    expect(response.headers['set-cookie']).toBeUndefined();
+    expectNoCache(response.headers);
+  });
+
+  it.each([
+    ['authenticated false', { authenticated: false }],
+    ['missing current client', { currentClient: undefined }],
+    ['invalid identity', { identity: { name: 'Missing subject' } }],
+    ['invalid realm roles', { realmRoles: ['valid', 1] }],
+    ['invalid client roles', { clientRoles: 'invalid' }],
+    ['invalid groups', { groups: [null] }],
+    ['invalid context expiry', { contextExpiresAt: 1.5 }],
+    ['non epoch context expiry', { contextExpiresAt: 60_000 }],
+    ['invalid session expiry', { sessionExpiresAt: Number.NaN }],
+    ['invalid absolute expiry', { sessionAbsoluteExpiresAt: undefined }],
+  ])('rejects malformed client context response: %s', async (_name, patch) => {
+    nats.firstValue.mockResolvedValueOnce({
+      ...clientContextFixture(),
+      ...patch,
+    });
+    const response = await request(app.getHttpServer())
+      .post('/api/auth/client/context')
+      .set('Cookie', `sid=${sid}`)
+      .send({ tool: 'beneficiary' })
+      .expect(502);
+    expect(response.body.error.code).toBe('AUTH_UPSTREAM_ERROR');
+    expect(response.headers['set-cookie']).toBeUndefined();
+    expectNoCache(response.headers);
+  });
+
+  it.each([
+    ['INVALID_CLIENT_REQUEST', 400],
+    ['SESSION_INVALID', 401],
+    ['WEB_TOOL_UNAVAILABLE', 403],
+    ['WEB_CLIENT_ACCESS_DENIED', 403],
+    ['WEB_CLIENT_INVALID', 502],
+    ['AUTH_SERVICE_UNAVAILABLE', 503],
+    ['WEB_AUTH_DISABLED', 503],
+  ])('maps client ensure error %s to HTTP %s', async (code, status) => {
+    nats.firstValue.mockRejectedValueOnce({
+      error: { code, message: 'upstream detail must not leak' },
+      sid: 'must-not-leak',
+    });
+    const response = await request(app.getHttpServer())
+      .post('/api/auth/client/context')
+      .set('Cookie', `sid=${sid}`)
+      .send({ tool: 'beneficiary' })
+      .expect(status);
+    expect(response.body.error.code).toBe(code);
+    expect(response.text).not.toContain('upstream detail');
+    expect(response.text).not.toContain('must-not-leak');
+    expect(response.headers['set-cookie']).toBeUndefined();
+    expectNoCache(response.headers);
+  });
+
+  it('sanitizes an unknown client ensure error', async () => {
+    nats.firstValue.mockRejectedValueOnce(new Error('internal NATS and request detail'));
+    const response = await request(app.getHttpServer())
+      .post('/api/auth/client/context')
+      .set('Cookie', `sid=${sid}`)
+      .send({ tool: 'beneficiary' })
+      .expect(502);
+    expect(response.body.error.code).toBe('AUTH_UPSTREAM_ERROR');
+    expect(response.text).not.toContain('internal NATS');
+    expect(response.headers['set-cookie']).toBeUndefined();
+    expectNoCache(response.headers);
+  });
+
   it.each([undefined, null, Number.NaN, Number.POSITIVE_INFINITY, 1.5])(
     'rejects an invalid absolute session expiry from Auth',
     async (sessionAbsoluteExpiresAt) => {
@@ -217,4 +364,19 @@ describe('WebAuthController', () => {
 function expectNoCache(headers: Record<string, string | string[]>): void {
   expect(headers['cache-control']).toBe('no-store');
   expect(headers.pragma).toBe('no-cache');
+}
+
+function clientContextFixture() {
+  return {
+    authenticated: true,
+    currentTool: 'beneficiary',
+    currentClient: 'beneficiary-interface',
+    identity,
+    realmRoles: ['realm-role'],
+    clientRoles: ['read'],
+    groups: ['/beneficiary'],
+    contextExpiresAt: Date.now() + 60_000,
+    sessionExpiresAt: Date.now() + 120_000,
+    sessionAbsoluteExpiresAt: Date.now() + 240_000,
+  };
 }
