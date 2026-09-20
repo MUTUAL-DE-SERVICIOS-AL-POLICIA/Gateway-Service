@@ -88,6 +88,7 @@ describe('WebAuthController', () => {
         groups: ['must-not-leak'],
       },
       sessionExpiresAt: Date.now() + 60_000,
+      sessionAbsoluteExpiresAt: Date.now() + 120_000,
       refreshToken: 'must-not-leak',
     });
     const response = await request(app.getHttpServer())
@@ -104,6 +105,7 @@ describe('WebAuthController', () => {
       returnPath: '/apphub/reports?page=2',
       identity,
       sessionExpiresAt: expect.any(Number),
+      sessionAbsoluteExpiresAt: expect.any(Number),
     });
     expect(response.text).not.toContain('must-not-leak');
     expect(response.headers['set-cookie']).toBeUndefined();
@@ -133,6 +135,28 @@ describe('WebAuthController', () => {
     expect(response.headers['set-cookie']).toBeUndefined();
     expectNoCache(response.headers);
   });
+
+  it.each([undefined, null, Number.NaN, Number.POSITIVE_INFINITY, 1.5])(
+    'rejects an invalid absolute session expiry from Auth',
+    async (sessionAbsoluteExpiresAt) => {
+      nats.firstValue.mockResolvedValueOnce({
+        sid,
+        returnPath: '/apphub',
+        identity,
+        sessionExpiresAt: Date.now() + 60_000,
+        sessionAbsoluteExpiresAt,
+      });
+      const response = await request(app.getHttpServer())
+        .post('/api/auth/exchange')
+        .send({
+          code: 'authorization-code',
+          state: opaque,
+          browserBinding: opaque,
+        })
+        .expect(502);
+      expect(response.body.error.code).toBe('AUTH_UPSTREAM_ERROR');
+    },
+  );
 
   it.each([
     ['INVALID_LOGIN_REQUEST', 400],

@@ -89,6 +89,7 @@ export function exchangeResponse(value: unknown): ExchangeWebCodeResponse {
     returnPath: safeReturnPath(source.returnPath),
     identity: identity(source.identity),
     sessionExpiresAt: expiration(source.sessionExpiresAt),
+    sessionAbsoluteExpiresAt: expiration(source.sessionAbsoluteExpiresAt),
   };
 }
 
