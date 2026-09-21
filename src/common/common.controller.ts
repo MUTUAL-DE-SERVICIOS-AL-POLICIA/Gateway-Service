@@ -10,7 +10,14 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { MessagePattern, Payload } from '@nestjs/microservices';
-import { ApiBody, ApiConsumes, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBody,
+  ApiConsumes,
+  ApiCookieAuth,
+  ApiOperation,
+  ApiParam,
+  ApiTags,
+} from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
   WhatsappService,
@@ -21,7 +28,8 @@ import {
   SmsDto,
   WhatsappDto,
 } from 'src/common';
-import { AuthGuard } from 'src/auth/guards';
+import { WebAuthorizationGuard } from 'src/auth/web-auth/web-authorization.guard';
+import { WebAuthorize, WebProtected } from 'src/auth/web-auth/web-authorization.decorators';
 
 @ApiTags('common')
 @Controller('common')
@@ -49,7 +57,10 @@ export class CommonController {
     return this.ftp.connectSwitch(data.value);
   }
 
-  @Post('uploadChunk')
+  @Post('uploadChunk/file-dossier/create')
+  @ApiCookieAuth('web-session')
+  @WebAuthorize('beneficiary', 'affiliates.file_dossiers')
+  @WebProtected('write')
   @ApiOperation({ summary: 'Subir por chunks' })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -71,8 +82,48 @@ export class CommonController {
     },
   })
   @UseInterceptors(FileInterceptor('chunk'))
-  @UseGuards(AuthGuard)
-  async uploadChunk(@UploadedFile() chunk: Express.Multer.File, @Body() body: any) {
+  @UseGuards(WebAuthorizationGuard)
+  async uploadChunkForFileDossierCreate(
+    @UploadedFile() chunk: Express.Multer.File,
+    @Body() body: any,
+  ) {
+    return this.storeFileDossierChunk(chunk, body);
+  }
+
+  @Post('uploadChunk/file-dossier/update')
+  @ApiCookieAuth('web-session')
+  @WebAuthorize('beneficiary', 'affiliates.file_dossiers')
+  @WebProtected('update')
+  @ApiOperation({ summary: 'Subir por chunks' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    description: 'Chunk del archivo (máx. 5MB)',
+    type: 'multipart/form-data',
+    required: true,
+    schema: {
+      type: 'object',
+      properties: {
+        chunk: {
+          type: 'string',
+          format: 'binary',
+          description: 'Chunk del archivo',
+        },
+        openFtp: { type: 'string' },
+        closeFtp: { type: 'string' },
+        numberChunk: { type: 'string' },
+      },
+    },
+  })
+  @UseInterceptors(FileInterceptor('chunk'))
+  @UseGuards(WebAuthorizationGuard)
+  async uploadChunkForFileDossierUpdate(
+    @UploadedFile() chunk: Express.Multer.File,
+    @Body() body: any,
+  ) {
+    return this.storeFileDossierChunk(chunk, body);
+  }
+
+  private async storeFileDossierChunk(chunk: Express.Multer.File, body: any) {
     const { nameChunk } = body;
     await this.ftp.uploadChunk(chunk, nameChunk);
 

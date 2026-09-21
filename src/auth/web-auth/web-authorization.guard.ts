@@ -1,6 +1,6 @@
 import { CanActivate, ExecutionContext, HttpException, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { Request } from 'express';
+import { Request, Response } from 'express';
 import { TimeoutError } from 'rxjs';
 import { NatsService } from 'src/common/services/nats.service';
 import { WebAuthPatterns } from './contracts/web-auth.contracts';
@@ -14,6 +14,7 @@ import {
   WebProtectedMetadata,
 } from './web-authorization.decorators';
 import { webNatsRequest } from './web-nats-request';
+import { setWebNoStoreHeaders } from './web-no-store';
 
 const AUTHORIZATION_NATS_TIMEOUT_MS = 5_000;
 const TOOL_KEY = /^[a-z][a-z0-9-]{0,63}$/;
@@ -41,6 +42,7 @@ export class WebAuthorizationGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
+    setWebNoStoreHeaders(context.switchToHttp().getResponse<Response>());
     const authorize = this.reflector.getAllAndOverride<WebAuthorizeMetadata>(
       WEB_AUTHORIZE_METADATA,
       [context.getHandler(), context.getClass()],

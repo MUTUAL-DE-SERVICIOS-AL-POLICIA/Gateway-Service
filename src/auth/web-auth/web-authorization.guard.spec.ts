@@ -26,11 +26,12 @@ function context(
   request: Record<string, any>,
   handler: Function = function handler() {},
   controller: Function = class Controller {},
+  response: Record<string, any> = { setHeader: jest.fn() },
 ): ExecutionContext {
   return {
     getHandler: () => handler,
     getClass: () => controller,
-    switchToHttp: () => ({ getRequest: () => request }),
+    switchToHttp: () => ({ getRequest: () => request, getResponse: () => response }),
   } as unknown as ExecutionContext;
 }
 
@@ -67,6 +68,17 @@ describe('WebAuthorizationGuard', () => {
       user: { username: 'operator', name: 'Operator' },
     });
     expect(JSON.stringify(request.user)).not.toMatch(/sid|token|roles|groups/);
+  });
+
+  it('sets no-store headers before authorization without emitting cookies', async () => {
+    nats.send.mockResolvedValueOnce(of({ authorized: false }));
+    const response = { setHeader: jest.fn() };
+    await guard
+      .canActivate(context({ headers: { cookie: `sid=${sid}` } }, undefined, undefined, response))
+      .catch(() => undefined);
+    expect(response.setHeader).toHaveBeenCalledWith('Cache-Control', 'no-store');
+    expect(response.setHeader).toHaveBeenCalledWith('Pragma', 'no-cache');
+    expect(response.setHeader).not.toHaveBeenCalledWith('Set-Cookie', expect.anything());
   });
 
   it('uses sub when preferredUsername is absent', async () => {

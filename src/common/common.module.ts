@@ -14,6 +14,7 @@ import {
 import { CommonController } from './common.controller';
 import { NotificationsController } from './notifications.controller';
 import { HttpModule } from '@nestjs/axios';
+import { WebAuthorizationGuard } from 'src/auth/web-auth/web-authorization.guard';
 
 @Global()
 @Module({
@@ -39,6 +40,7 @@ import { HttpModule } from '@nestjs/axios';
     BcbService,
     ImportCsvService,
     PdfBufferService,
+    WebAuthorizationGuard,
   ],
   exports: [
     ClientsModule,
