@@ -4,15 +4,26 @@ import { Reflector } from '@nestjs/core';
 import { Observable, of, throwError } from 'rxjs';
 import { NatsService } from 'src/common/services/nats.service';
 import { WebAuthPatterns } from './contracts/web-auth.contracts';
+import {
+  WEB_AUTHORIZE_METADATA,
+  WEB_PROTECTED_METADATA,
+  WebAuthorize,
+  WebProtected,
+} from './web-authorization.decorators';
 import { WebAuthorizationGuard } from './web-authorization.guard';
-import { WEB_OPERATION_METADATA } from './web-operation.decorator';
 
 jest.mock('src/config', () => ({ NATS_SERVICE: 'NATS_SERVICE' }));
 
 const sid = 's'.repeat(43);
+const actor = { sub: 'subject-1', preferredUsername: 'operator', name: 'Operator' };
+
+interface TestRequest {
+  headers: { cookie?: string };
+  user?: { username: string; name?: string };
+}
 
 function context(
-  request: Record<string, unknown>,
+  request: Record<string, any>,
   handler: Function = function handler() {},
   controller: Function = class Controller {},
 ): ExecutionContext {
@@ -32,61 +43,118 @@ describe('WebAuthorizationGuard', () => {
     jest.clearAllMocks();
     nats.send.mockReset();
     reflector.getAllAndOverride.mockReset();
-    reflector.getAllAndOverride.mockReturnValue('beneficiary.persons.read');
+    reflector.getAllAndOverride
+      .mockReturnValueOnce({ tool: 'beneficiary', resource: 'persons' })
+      .mockReturnValueOnce({ scope: 'read' });
     guard = new WebAuthorizationGuard(
       nats as unknown as NatsService,
       reflector as unknown as Reflector,
     );
   });
 
-  it('uses trusted metadata and sends only sid and operation', async () => {
-    nats.send.mockResolvedValueOnce(of({ authorized: true }));
-    const request = { headers: { cookie: `sid=${sid}` } };
+  it('sends only SID and trusted metadata and installs the minimum audit actor', async () => {
+    nats.send.mockResolvedValueOnce(of({ authorized: true, actor }));
+    const request: TestRequest = { headers: { cookie: `sid=${sid}` } };
     await expect(guard.canActivate(context(request))).resolves.toBe(true);
     expect(nats.send).toHaveBeenCalledWith(WebAuthPatterns.authorizationCheck, {
       sid,
-      operation: 'beneficiary.persons.read',
+      tool: 'beneficiary',
+      resource: 'persons',
+      scope: 'read',
     });
-    expect(request).toEqual({ headers: { cookie: `sid=${sid}` } });
+    expect(request).toEqual({
+      headers: { cookie: `sid=${sid}` },
+      user: { username: 'operator', name: 'Operator' },
+    });
+    expect(JSON.stringify(request.user)).not.toMatch(/sid|token|roles|groups/);
   });
 
-  it.each([undefined, 'unknown.operation', 123])(
-    'fails safely when metadata is %s',
-    async (operation) => {
-      reflector.getAllAndOverride.mockReturnValueOnce(operation);
-      await expect(
-        guard.canActivate(context({ headers: { cookie: `sid=${sid}` } })),
-      ).rejects.toMatchObject({ status: 400 });
-      expect(nats.send).not.toHaveBeenCalled();
-    },
-  );
+  it('uses sub when preferredUsername is absent', async () => {
+    nats.send.mockResolvedValueOnce(of({ authorized: true, actor: { sub: 'subject-1' } }));
+    const request: TestRequest = { headers: { cookie: `sid=${sid}` } };
+    await guard.canActivate(context(request));
+    expect(request.user).toEqual({ username: 'subject-1', name: undefined });
+  });
+
+  it.each([
+    ['missing authorize metadata', undefined, { scope: 'read' }],
+    ['missing protected metadata', { tool: 'beneficiary', resource: 'persons' }, undefined],
+    ['incomplete authorize metadata', { tool: 'beneficiary' }, { scope: 'read' }],
+    [
+      'additional authorize metadata',
+      { tool: 'beneficiary', resource: 'persons', audience: 'x' },
+      { scope: 'read' },
+    ],
+    ['invalid tool', { tool: 'Beneficiary', resource: 'persons' }, { scope: 'read' }],
+    ['invalid resource', { tool: 'beneficiary', resource: 'persons#read' }, { scope: 'read' }],
+    ['invalid scope', { tool: 'beneficiary', resource: 'persons' }, { scope: 'read write' }],
+    [
+      'partial resource override in protected metadata',
+      { tool: 'beneficiary', resource: 'persons' },
+      { scope: 'read', resource: 'persons.records' },
+    ],
+    [
+      'non-plain metadata',
+      Object.assign(Object.create({ tool: 'beneficiary' }), { resource: 'persons' }),
+      { scope: 'read' },
+    ],
+  ])('fails closed for %s', async (_label, authorize, protectedMetadata) => {
+    reflector.getAllAndOverride.mockReset();
+    reflector.getAllAndOverride
+      .mockReturnValueOnce(authorize)
+      .mockReturnValueOnce(protectedMetadata);
+    await expect(
+      guard.canActivate(context({ headers: { cookie: `sid=${sid}` } })),
+    ).rejects.toMatchObject({ status: 400 });
+    expect(nats.send).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['object', { username: 'traditional-user', name: 'Traditional User' }],
+    ['primitive', 'unexpected-user'],
+  ])('fails closed without NATS when request.user already contains an %s', async (_label, user) => {
+    const request: Record<string, unknown> = {
+      headers: { cookie: `sid=${sid}` },
+      user,
+    };
+    const original = request.user;
+    const error = await guard.canActivate(context(request)).catch((value) => value);
+    expect(error).toBeInstanceOf(HttpException);
+    expect(error).toMatchObject({ status: 500 });
+    expect(error.getResponse()).toEqual({
+      error: {
+        code: 'AUTHORIZATION_CONTEXT_INVALID',
+        message: 'Authorization context is invalid',
+      },
+    });
+    expect(nats.send).not.toHaveBeenCalled();
+    expect(request.user).toBe(original);
+  });
 
   it.each([
     ['missing', undefined],
     ['empty', 'sid='],
     ['invalid', 'sid=invalid'],
     ['duplicated', `sid=${sid}; sid=${'b'.repeat(43)}`],
-  ])('rejects a %s sid cookie', async (_label, cookie) => {
+    ['similarly named', `sid_extra=${sid}`],
+    ['encoded', `sid=${encodeURIComponent(sid + '%')}`],
+    ['space in name', `sid =${sid}`],
+    ['space in value', `sid= ${sid}`],
+  ])('rejects a %s SID cookie', async (_label, cookie) => {
     const request = { headers: cookie ? { cookie } : {} };
     const error = await guard.canActivate(context(request)).catch((value) => value);
     expect(error).toBeInstanceOf(HttpException);
     expect(error).toMatchObject({ status: 401 });
-    expect(error.getResponse()).toEqual({
-      error: {
-        code: 'SESSION_INVALID',
-        message: 'Session is invalid or expired',
-      },
-    });
     expect(nats.send).not.toHaveBeenCalled();
   });
 
-  it('maps authorized=false to a stable denial', async () => {
+  it('maps authorized=false to a stable denial without setting request.user', async () => {
     nats.send.mockResolvedValueOnce(of({ authorized: false }));
-    const error = await guard
-      .canActivate(context({ headers: { cookie: `sid=${sid}` } }))
-      .catch((value) => value);
+    const request: TestRequest = { headers: { cookie: `sid=${sid}` } };
+    const error = await guard.canActivate(context(request)).catch((value) => value);
     expect(error).toMatchObject({ status: 403 });
     expect(error.getResponse().error.code).toBe('AUTHORIZATION_DENIED');
+    expect(request.user).toBeUndefined();
   });
 
   it.each([
@@ -106,8 +174,15 @@ describe('WebAuthorizationGuard', () => {
     null,
     true,
     {},
+    [],
     { authorized: 'true' },
-    { authorized: true, sid: 'must-not-leak' },
+    { authorized: true },
+    { authorized: true, actor: null },
+    { authorized: true, actor: { sub: '' } },
+    { authorized: true, actor: { sub: 'subject-1', roles: [] } },
+    { authorized: false, actor: { sub: 'subject-1' } },
+    { authorized: false, extra: true },
+    Object.create({ authorized: false }),
   ])('rejects malformed Auth response %#', async (response) => {
     nats.send.mockResolvedValueOnce(of(response));
     const error = await guard
@@ -117,45 +192,80 @@ describe('WebAuthorizationGuard', () => {
     expect(error.getResponse().error.code).toBe('AUTH_UPSTREAM_ERROR');
   });
 
-  it.each([
-    [],
-    Object.create({ authorized: true }),
-    Object.assign(Object.create({ inherited: true }), { authorized: true }),
-  ])('rejects a non-plain Auth response', async (response) => {
-    nats.send.mockResolvedValueOnce(of(response));
-    await expect(
-      guard.canActivate(context({ headers: { cookie: `sid=${sid}` } })),
-    ).rejects.toMatchObject({ status: 502 });
+  it('inherits class tool/resource and method scope', async () => {
+    class Controller {}
+    const handler = function handler() {};
+    Reflect.defineMetadata(
+      WEB_AUTHORIZE_METADATA,
+      Object.freeze({ tool: 'beneficiary', resource: 'persons' }),
+      Controller,
+    );
+    Reflect.defineMetadata(WEB_PROTECTED_METADATA, Object.freeze({ scope: 'read' }), handler);
+    const actualGuard = new WebAuthorizationGuard(nats as unknown as NatsService, new Reflector());
+    nats.send.mockResolvedValueOnce(of({ authorized: true, actor }));
+    await actualGuard.canActivate(
+      context({ headers: { cookie: `sid=${sid}` } }, handler, Controller),
+    );
+    expect(nats.send).toHaveBeenCalledWith(WebAuthPatterns.authorizationCheck, {
+      sid,
+      tool: 'beneficiary',
+      resource: 'persons',
+      scope: 'read',
+    });
   });
 
-  it('passes handler and class to Reflector in override order', async () => {
-    nats.send.mockResolvedValue(of({ authorized: true }));
+  it('uses a complete method WebAuthorize override instead of mixing resources', async () => {
+    class Controller {}
+    const handler = function handler() {};
+    Reflect.defineMetadata(
+      WEB_AUTHORIZE_METADATA,
+      Object.freeze({ tool: 'beneficiary', resource: 'persons' }),
+      Controller,
+    );
+    Reflect.defineMetadata(
+      WEB_AUTHORIZE_METADATA,
+      Object.freeze({ tool: 'beneficiary', resource: 'persons.records' }),
+      handler,
+    );
+    Reflect.defineMetadata(WEB_PROTECTED_METADATA, Object.freeze({ scope: 'read' }), handler);
+    const actualGuard = new WebAuthorizationGuard(nats as unknown as NatsService, new Reflector());
+    nats.send.mockResolvedValueOnce(of({ authorized: true, actor }));
+    await actualGuard.canActivate(
+      context({ headers: { cookie: `sid=${sid}` } }, handler, Controller),
+    );
+    expect(nats.send).toHaveBeenCalledWith(WebAuthPatterns.authorizationCheck, {
+      sid,
+      tool: 'beneficiary',
+      resource: 'persons.records',
+      scope: 'read',
+    });
+  });
+
+  it('decorators produce exact frozen metadata', () => {
+    class Controller {}
+    const handler = function handler() {};
+    WebAuthorize('beneficiary', 'persons')(Controller);
+    WebProtected('read')(Controller.prototype, 'handler', { value: handler } as PropertyDescriptor);
+    expect(Reflect.getMetadata(WEB_AUTHORIZE_METADATA, Controller)).toEqual({
+      tool: 'beneficiary',
+      resource: 'persons',
+    });
+    expect(Reflect.getMetadata(WEB_PROTECTED_METADATA, handler)).toEqual({ scope: 'read' });
+    expect(Object.isFrozen(Reflect.getMetadata(WEB_PROTECTED_METADATA, handler))).toBe(true);
+  });
+
+  it('reads both metadata keys with handler-before-class precedence', async () => {
+    nats.send.mockResolvedValueOnce(of({ authorized: true, actor }));
     const execution = context({ headers: { cookie: `sid=${sid}` } });
     await guard.canActivate(execution);
-    expect(reflector.getAllAndOverride).toHaveBeenCalledWith(WEB_OPERATION_METADATA, [
+    expect(reflector.getAllAndOverride).toHaveBeenNthCalledWith(1, WEB_AUTHORIZE_METADATA, [
       execution.getHandler(),
       execution.getClass(),
     ]);
-  });
-
-  it.each([
-    ['method metadata', 'beneficiary.persons.read', undefined, true],
-    ['class metadata', undefined, 'beneficiary.persons.read', true],
-    ['method priority over class', 'unknown.operation', 'beneficiary.persons.read', false],
-  ])('resolves %s predictably', async (_label, methodOperation, classOperation, expected) => {
-    const handler = function handler() {};
-    class Controller {}
-    if (methodOperation !== undefined)
-      Reflect.defineMetadata(WEB_OPERATION_METADATA, methodOperation, handler);
-    if (classOperation !== undefined)
-      Reflect.defineMetadata(WEB_OPERATION_METADATA, classOperation, Controller);
-    const actualGuard = new WebAuthorizationGuard(nats as unknown as NatsService, new Reflector());
-    nats.send.mockResolvedValueOnce(of({ authorized: true }));
-    const result = actualGuard.canActivate(
-      context({ headers: { cookie: `sid=${sid}` } }, handler, Controller),
-    );
-    if (expected) await expect(result).resolves.toBe(true);
-    else await expect(result).rejects.toMatchObject({ status: 400 });
+    expect(reflector.getAllAndOverride).toHaveBeenNthCalledWith(2, WEB_PROTECTED_METADATA, [
+      execution.getHandler(),
+      execution.getClass(),
+    ]);
   });
 
   it('times out, unsubscribes and returns Auth unavailable', async () => {
@@ -172,17 +282,5 @@ describe('WebAuthorizationGuard', () => {
     expect(teardown).toHaveBeenCalledTimes(1);
     expect(jest.getTimerCount()).toBe(0);
     jest.useRealTimers();
-  });
-
-  it.each([
-    ['sid_extra', `sid_extra=${sid}`],
-    ['encoded', `sid=${encodeURIComponent(sid + '%')}`],
-    ['space in name', `sid =${sid}`],
-    ['space in value', `sid= ${sid}`],
-  ])('rejects cookie variant %s', async (_label, cookie) => {
-    await expect(guard.canActivate(context({ headers: { cookie } }))).rejects.toMatchObject({
-      status: 401,
-    });
-    expect(nats.send).not.toHaveBeenCalled();
   });
 });

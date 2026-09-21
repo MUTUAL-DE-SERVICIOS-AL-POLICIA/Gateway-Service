@@ -13,6 +13,7 @@ export type WebAuthGatewayErrorCode =
   | 'WEB_CLIENT_INVALID'
   | 'INVALID_AUTHORIZATION_REQUEST'
   | 'AUTHORIZATION_DENIED'
+  | 'AUTHORIZATION_CONTEXT_INVALID'
   | 'BENEFICIARY_SERVICE_UNAVAILABLE'
   | 'AUTH_UPSTREAM_ERROR';
 
@@ -69,6 +70,10 @@ const definitions: Record<WebAuthGatewayErrorCode, ErrorDefinition> = {
   AUTHORIZATION_DENIED: {
     status: HttpStatus.FORBIDDEN,
     message: 'Authorization denied',
+  },
+  AUTHORIZATION_CONTEXT_INVALID: {
+    status: HttpStatus.INTERNAL_SERVER_ERROR,
+    message: 'Authorization context is invalid',
   },
   BENEFICIARY_SERVICE_UNAVAILABLE: {
     status: HttpStatus.SERVICE_UNAVAILABLE,

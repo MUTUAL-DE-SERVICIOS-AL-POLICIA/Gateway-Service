@@ -43,16 +43,21 @@ export interface EnsureWebClientContextResponse {
   sessionAbsoluteExpiresAt: number;
 }
 
-export type WebAuthorizationOperation = 'beneficiary.persons.read';
-
 export interface CheckWebAuthorizationRequest {
   sid: string;
-  operation: WebAuthorizationOperation;
+  tool: string;
+  resource: string;
+  scope: string;
 }
 
-export interface CheckWebAuthorizationResponse {
-  authorized: boolean;
+export interface WebAuthorizationActor {
+  sub: string;
+  preferredUsername?: string;
+  name?: string;
 }
+
+export type CheckWebAuthorizationResponse =
+  { authorized: true; actor: WebAuthorizationActor } | { authorized: false };
 
 export const WebAuthPatterns = {
   loginStart: 'web-auth.login.start',

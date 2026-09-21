@@ -10,7 +10,7 @@ import {
 import { ApiCookieAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { NatsService } from 'src/common/services/nats.service';
 import { WebAuthorizationGuard } from 'src/auth/web-auth/web-authorization.guard';
-import { WebOperation } from 'src/auth/web-auth/web-operation.decorator';
+import { WebAuthorize, WebProtected } from 'src/auth/web-auth/web-authorization.decorators';
 import { WebAuthExceptionFilter } from 'src/auth/web-auth/web-auth-exception.filter';
 import { publicWebAuthError } from 'src/auth/web-auth/web-auth.errors';
 import { webNatsRequest } from 'src/auth/web-auth/web-nats-request';
@@ -33,6 +33,7 @@ function upstreamError(): HttpException {
 
 @ApiTags('web-beneficiaries')
 @ApiCookieAuth('web-session')
+@WebAuthorize('beneficiary', 'persons')
 @Controller('web/beneficiaries/persons')
 @UseFilters(WebAuthExceptionFilter)
 export class WebPersonsController {
@@ -40,7 +41,7 @@ export class WebPersonsController {
 
   @Get()
   @UseGuards(WebAuthorizationGuard)
-  @WebOperation('beneficiary.persons.read')
+  @WebProtected('read')
   @Header('Cache-Control', 'no-store')
   @Header('Pragma', 'no-cache')
   @ApiOperation({ summary: 'Listar personas mediante autorización web UMA' })

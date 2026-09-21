@@ -61,6 +61,24 @@ function identity(value: unknown): PresentationIdentity {
   };
 }
 
+function authorizationActor(value: unknown) {
+  const source = record(value);
+  if (
+    Object.getPrototypeOf(source) !== Object.prototype ||
+    Object.keys(source).some((key) => !['sub', 'preferredUsername', 'name'].includes(key)) ||
+    Object.keys(source).length < 1
+  )
+    throw new InvalidWebAuthResponseError();
+  const actor = {
+    sub: requiredString(source.sub),
+    preferredUsername: optionalString(source.preferredUsername),
+    name: optionalString(source.name),
+  };
+  return Object.fromEntries(
+    Object.entries(actor).filter(([, item]) => item !== undefined),
+  ) as typeof actor;
+}
+
 function safeReturnPath(value: unknown): string {
   const path = requiredString(value);
   if (
@@ -136,13 +154,21 @@ export function clientContextResponse(value: unknown): EnsureWebClientContextRes
 
 export function authorizationResponse(value: unknown): CheckWebAuthorizationResponse {
   const source = record(value);
-  if (
-    Object.getPrototypeOf(source) !== Object.prototype ||
-    Object.keys(source).length !== 1 ||
-    !Object.prototype.hasOwnProperty.call(source, 'authorized') ||
-    typeof source.authorized !== 'boolean'
-  ) {
+  if (Object.getPrototypeOf(source) !== Object.prototype) {
     throw new InvalidWebAuthResponseError();
   }
-  return { authorized: source.authorized };
+  if (
+    source.authorized === false &&
+    Object.keys(source).length === 1 &&
+    Object.prototype.hasOwnProperty.call(source, 'authorized')
+  )
+    return { authorized: false };
+  if (
+    source.authorized === true &&
+    Object.keys(source).length === 2 &&
+    Object.prototype.hasOwnProperty.call(source, 'authorized') &&
+    Object.prototype.hasOwnProperty.call(source, 'actor')
+  )
+    return { authorized: true, actor: authorizationActor(source.actor) };
+  throw new InvalidWebAuthResponseError();
 }
