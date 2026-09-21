@@ -2,43 +2,27 @@ import {
   CanActivate,
   ExecutionContext,
   Injectable,
-  NotFoundException,
+  Logger,
   UnauthorizedException,
 } from '@nestjs/common';
 import { Request } from 'express';
-import { Reflector } from '@nestjs/core';
 import { NatsService } from 'src/common';
 
 @Injectable()
-export class AuthGuard implements CanActivate {
+export class AuthBcbGuard implements CanActivate {
+  private readonly logger = new Logger('AuthBcbGuard');
 
   constructor(
     private readonly nats: NatsService,
-    private readonly reflector: Reflector,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const isPublic = this.reflector.getAllAndOverride<boolean>('isPublic', [
-      context.getHandler(),
-      context.getClass(),
-    ]);
-    if (isPublic) return true;
 
     const request = context.switchToHttp().getRequest();
-    const apiKey = request.headers['x-api-key'] as string | undefined;
     const token = this.extractTokenFromHeader(request);
-
-    if (!apiKey && !token) {
-      throw new NotFoundException({ error: true, message: 'Token no encontrado' });
-    }
-
     try {
-      if (apiKey) {
-        return await this.nats.firstValue('auth.verify.apiKey', apiKey);
-      }
-
-      const { username, name } = await this.nats.firstValue('auth.verify.token', token!);
-      request.user = { username, name };
+      const decoded = await this.nats.firstValue('authBcb.verifyJwt', token!);
+      request.user = decoded;
       return true;
     } catch {
       throw new UnauthorizedException({ error: true, message: 'Sin autorización' });

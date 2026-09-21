@@ -1,10 +1,10 @@
-FROM nats:latest
+FROM nats:2.12.4-alpine3.22
 
 # Copia el archivo de configuración al contenedor
 COPY nats-server.conf /etc/nats/nats-server.conf
 
 # Configura el punto de entrada para usar el archivo de configuración personalizado
-ENTRYPOINT ["/nats-server"]
+# ENTRYPOINT ["/nats-server"]
 CMD ["-c", "/etc/nats/nats-server.conf"]
 
 # PASOS PARA LEVANTAR
