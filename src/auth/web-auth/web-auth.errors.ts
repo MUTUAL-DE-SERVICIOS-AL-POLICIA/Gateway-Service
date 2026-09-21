@@ -11,6 +11,9 @@ export type WebAuthGatewayErrorCode =
   | 'WEB_TOOL_UNAVAILABLE'
   | 'WEB_CLIENT_ACCESS_DENIED'
   | 'WEB_CLIENT_INVALID'
+  | 'INVALID_AUTHORIZATION_REQUEST'
+  | 'AUTHORIZATION_DENIED'
+  | 'BENEFICIARY_SERVICE_UNAVAILABLE'
   | 'AUTH_UPSTREAM_ERROR';
 
 interface ErrorDefinition {
@@ -58,6 +61,18 @@ const definitions: Record<WebAuthGatewayErrorCode, ErrorDefinition> = {
   WEB_CLIENT_INVALID: {
     status: HttpStatus.BAD_GATEWAY,
     message: 'Web client response is invalid',
+  },
+  INVALID_AUTHORIZATION_REQUEST: {
+    status: HttpStatus.BAD_REQUEST,
+    message: 'Invalid authorization request',
+  },
+  AUTHORIZATION_DENIED: {
+    status: HttpStatus.FORBIDDEN,
+    message: 'Authorization denied',
+  },
+  BENEFICIARY_SERVICE_UNAVAILABLE: {
+    status: HttpStatus.SERVICE_UNAVAILABLE,
+    message: 'Beneficiary service is unavailable',
   },
   AUTH_UPSTREAM_ERROR: {
     status: HttpStatus.BAD_GATEWAY,

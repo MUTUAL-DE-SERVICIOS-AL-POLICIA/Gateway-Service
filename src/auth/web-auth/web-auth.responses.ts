@@ -1,4 +1,5 @@
 import {
+  CheckWebAuthorizationResponse,
   CheckWebSessionResponse,
   EnsureWebClientContextResponse,
   ExchangeWebCodeResponse,
@@ -131,4 +132,17 @@ export function clientContextResponse(value: unknown): EnsureWebClientContextRes
     sessionExpiresAt: epochMilliseconds(source.sessionExpiresAt),
     sessionAbsoluteExpiresAt: epochMilliseconds(source.sessionAbsoluteExpiresAt),
   };
+}
+
+export function authorizationResponse(value: unknown): CheckWebAuthorizationResponse {
+  const source = record(value);
+  if (
+    Object.getPrototypeOf(source) !== Object.prototype ||
+    Object.keys(source).length !== 1 ||
+    !Object.prototype.hasOwnProperty.call(source, 'authorized') ||
+    typeof source.authorized !== 'boolean'
+  ) {
+    throw new InvalidWebAuthResponseError();
+  }
+  return { authorized: source.authorized };
 }

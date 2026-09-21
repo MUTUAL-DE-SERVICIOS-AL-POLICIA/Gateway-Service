@@ -155,8 +155,13 @@ describe('WebAuthController', () => {
 
   it.each([
     ['missing sid', undefined],
+    ['empty sid', 'sid='],
     ['invalid sid', 'sid=invalid'],
     ['ambiguous sid', `sid=${sid}; sid=${'b'.repeat(43)}`],
+    ['similarly named cookie', `sid_extra=${sid}`],
+    ['encoded sid', `sid=${encodeURIComponent(sid + '%')}`],
+    ['space in cookie name', `sid =${sid}`],
+    ['space in cookie value', `sid= ${sid}`],
   ])('rejects %s cookie without calling Auth', async (_name, cookie) => {
     const pending = request(app.getHttpServer())
       .post('/api/auth/client/context')

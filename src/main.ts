@@ -52,6 +52,7 @@ async function bootstrap() {
         },
         'msp',
       )
+      .addCookieAuth('sid', { type: 'apiKey', in: 'cookie' }, 'web-session')
       .build();
     const document = SwaggerModule.createDocument(app, config);
     SwaggerModule.setup('api', app, document);
