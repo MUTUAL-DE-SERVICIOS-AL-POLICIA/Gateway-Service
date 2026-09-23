@@ -19,6 +19,7 @@ const publicCodes = new Set<WebAuthGatewayErrorCode>([
   'WEB_TOOL_UNAVAILABLE',
   'WEB_CLIENT_ACCESS_DENIED',
   'WEB_CLIENT_INVALID',
+  'INVALID_LOGOUT_TOKEN',
   'INVALID_AUTHORIZATION_REQUEST',
   'AUTHORIZATION_DENIED',
   'AUTHORIZATION_CONTEXT_INVALID',
@@ -45,9 +46,11 @@ export class WebAuthExceptionFilter implements ExceptionFilter {
     const path = request.originalUrl.split('?')[0];
     const invalidRequestCode = path.startsWith('/api/web/')
       ? 'INVALID_AUTHORIZATION_REQUEST'
-      : path.endsWith('/auth/client/context')
-        ? 'INVALID_CLIENT_REQUEST'
-        : 'INVALID_LOGIN_REQUEST';
+      : path.endsWith('/auth/backchannel-logout')
+        ? 'INVALID_LOGOUT_TOKEN'
+        : path.endsWith('/auth/client/context')
+          ? 'INVALID_CLIENT_REQUEST'
+          : 'INVALID_LOGIN_REQUEST';
     const code =
       exception instanceof BadRequestException
         ? invalidRequestCode

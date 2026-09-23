@@ -11,6 +11,7 @@ export type WebAuthGatewayErrorCode =
   | 'WEB_TOOL_UNAVAILABLE'
   | 'WEB_CLIENT_ACCESS_DENIED'
   | 'WEB_CLIENT_INVALID'
+  | 'INVALID_LOGOUT_TOKEN'
   | 'INVALID_AUTHORIZATION_REQUEST'
   | 'AUTHORIZATION_DENIED'
   | 'AUTHORIZATION_CONTEXT_INVALID'
@@ -62,6 +63,10 @@ const definitions: Record<WebAuthGatewayErrorCode, ErrorDefinition> = {
   WEB_CLIENT_INVALID: {
     status: HttpStatus.BAD_GATEWAY,
     message: 'Web client response is invalid',
+  },
+  INVALID_LOGOUT_TOKEN: {
+    status: HttpStatus.BAD_REQUEST,
+    message: 'Invalid back-channel logout token',
   },
   INVALID_AUTHORIZATION_REQUEST: {
     status: HttpStatus.BAD_REQUEST,

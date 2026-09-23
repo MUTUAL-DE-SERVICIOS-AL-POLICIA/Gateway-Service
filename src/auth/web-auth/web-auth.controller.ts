@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Header,
   Headers,
   HttpCode,
@@ -13,6 +14,7 @@ import { NatsService } from 'src/common/services/nats.service';
 import { WebAuthPatterns } from './contracts/web-auth.contracts';
 import {
   CheckWebSessionDto,
+  BackchannelLogoutDto,
   EnsureWebClientContextDto,
   ExchangeWebCodeDto,
   StartWebLoginDto,
@@ -22,6 +24,7 @@ import { WebAuthExceptionFilter } from './web-auth-exception.filter';
 import {
   clientContextResponse,
   exchangeResponse,
+  logoutResponse,
   sessionResponse,
   startResponse,
 } from './web-auth.responses';
@@ -53,6 +56,23 @@ export class WebAuthController {
     return this.call(WebAuthPatterns.loginExchange, request, exchangeResponse);
   }
 
+  @Delete('logout')
+  @Header('Cache-Control', 'no-store')
+  @Header('Pragma', 'no-cache')
+  @HttpCode(HttpStatus.OK)
+  @ApiHeader({
+    name: 'Cookie',
+    required: true,
+    description: 'Cookie HttpOnly sid requerida',
+    schema: { type: 'string' },
+  })
+  @ApiOperation({ summary: 'Cerrar la sesión web global' })
+  @ApiResponse({ status: 200, description: 'URL de cierre OIDC creada' })
+  logout(@Headers('cookie') cookieHeader: string | undefined) {
+    const sid = sidFromCookie(cookieHeader);
+    return this.call(WebAuthPatterns.logout, { sid }, logoutResponse);
+  }
+
   @Post('session/check')
   @Header('Cache-Control', 'no-store')
   @Header('Pragma', 'no-cache')
@@ -61,6 +81,20 @@ export class WebAuthController {
   @ApiResponse({ status: 200, description: 'Sesión web válida' })
   check(@Body() request: CheckWebSessionDto) {
     return this.call(WebAuthPatterns.sessionCheck, request, sessionResponse);
+  }
+
+  @Post('backchannel-logout')
+  @Header('Cache-Control', 'no-store')
+  @Header('Pragma', 'no-cache')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Procesar logout back-channel de Keycloak' })
+  @ApiResponse({ status: 204, description: 'Logout procesado' })
+  backchannelLogout(@Body() request: BackchannelLogoutDto): Promise<void> {
+    return this.call(
+      WebAuthPatterns.backchannelLogout,
+      { logoutToken: request.logout_token },
+      () => undefined,
+    );
   }
 
   @Post('client/context')

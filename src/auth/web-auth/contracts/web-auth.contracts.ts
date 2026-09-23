@@ -19,6 +19,14 @@ export interface ExchangeWebCodeResponse {
   sessionAbsoluteExpiresAt: number;
 }
 
+export interface LogoutWebSessionResponse {
+  logoutUrl: string;
+}
+
+export interface BackchannelLogoutRequest {
+  logoutToken: string;
+}
+
 export interface CheckWebSessionResponse {
   authenticated: true;
   identity: PresentationIdentity;
@@ -62,7 +70,9 @@ export type CheckWebAuthorizationResponse =
 export const WebAuthPatterns = {
   loginStart: 'web-auth.login.start',
   loginExchange: 'web-auth.login.exchange',
+  logout: 'web-auth.logout',
   sessionCheck: 'web-auth.session.check',
   clientEnsure: 'web-auth.client.ensure',
   authorizationCheck: 'web-auth.authorization.check',
+  backchannelLogout: 'web-auth.backchannel.logout',
 } as const;

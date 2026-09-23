@@ -3,6 +3,7 @@ import {
   CheckWebSessionResponse,
   EnsureWebClientContextResponse,
   ExchangeWebCodeResponse,
+  LogoutWebSessionResponse,
   PresentationIdentity,
   StartWebLoginResponse,
 } from './contracts/web-auth.contracts';
@@ -123,6 +124,20 @@ export function exchangeResponse(value: unknown): ExchangeWebCodeResponse {
     sessionExpiresAt: expiration(source.sessionExpiresAt),
     sessionAbsoluteExpiresAt: expiration(source.sessionAbsoluteExpiresAt),
   };
+}
+
+export function logoutResponse(value: unknown): LogoutWebSessionResponse {
+  const source = record(value);
+  const logoutUrl = requiredString(source.logoutUrl);
+  let url: URL;
+  try {
+    url = new URL(logoutUrl);
+  } catch {
+    throw new InvalidWebAuthResponseError();
+  }
+  if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password)
+    throw new InvalidWebAuthResponseError();
+  return { logoutUrl };
 }
 
 export function sessionResponse(value: unknown): CheckWebSessionResponse {
