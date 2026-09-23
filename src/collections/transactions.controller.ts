@@ -29,7 +29,7 @@ export class TransactionsController {
     description: 'Obtener todas las transacciones',
   })
   async findAll() {
-    return this.nats.send('collections.findAll', {});
+    return this.nats.send('collections.transactions.findAll', {});
   }
 
 }
