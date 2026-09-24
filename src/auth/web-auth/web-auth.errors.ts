@@ -1,4 +1,5 @@
 import { HttpException, HttpStatus } from '@nestjs/common';
+import { TimeoutError } from 'rxjs';
 
 export type WebAuthGatewayErrorCode =
   | 'INVALID_LOGIN_REQUEST'
@@ -112,6 +113,10 @@ function errorCode(value: unknown): string | undefined {
 }
 
 export function toPublicWebAuthException(error: unknown): HttpException {
+  if (error instanceof TimeoutError) {
+    const timeout = publicWebAuthError('AUTH_SERVICE_UNAVAILABLE');
+    return new HttpException(timeout.body, timeout.status);
+  }
   const code = errorCode(error);
   if (code && Object.prototype.hasOwnProperty.call(definitions, code)) {
     const publicCode = code as WebAuthGatewayErrorCode;

@@ -29,6 +29,9 @@ import {
   startResponse,
 } from './web-auth.responses';
 import { sidFromCookie } from './web-session-cookie';
+import { webNatsRequest } from './web-nats-request';
+
+const CLIENT_BOOTSTRAP_TIMEOUT_MS = 12_000;
 
 @ApiTags('web-auth')
 @Controller('auth')
@@ -126,11 +129,29 @@ export class WebAuthController {
     @Body() request: EnsureWebClientContextDto,
   ) {
     const sid = sidFromCookie(cookieHeader);
-    return this.call(
+    return this.callWithTimeout(
       WebAuthPatterns.clientEnsure,
       { sid, tool: request.tool },
       clientContextResponse,
     );
+  }
+
+  private async callWithTimeout<T>(
+    pattern: string,
+    request: unknown,
+    sanitize: (value: unknown) => T,
+  ): Promise<T> {
+    try {
+      const response = await webNatsRequest<unknown>(
+        this.nats,
+        pattern,
+        request,
+        CLIENT_BOOTSTRAP_TIMEOUT_MS,
+      );
+      return sanitize(response);
+    } catch (error) {
+      throw toPublicWebAuthException(error);
+    }
   }
 
   private async call<T>(

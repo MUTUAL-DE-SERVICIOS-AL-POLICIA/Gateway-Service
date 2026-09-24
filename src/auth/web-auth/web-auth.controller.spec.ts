@@ -2,6 +2,7 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
+import { from, NEVER } from 'rxjs';
 import { NatsService } from 'src/common/services/nats.service';
 import { WebAuthPatterns } from './contracts/web-auth.contracts';
 import { WebAuthController } from './web-auth.controller';
@@ -19,7 +20,7 @@ const identity = {
 
 describe('WebAuthController', () => {
   let app: INestApplication;
-  const nats = { firstValue: jest.fn() };
+  const nats = { firstValue: jest.fn(), send: jest.fn() };
 
   beforeAll(async () => {
     const module = await Test.createTestingModule({
@@ -36,6 +37,7 @@ describe('WebAuthController', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    nats.send.mockImplementation((pattern, payload) => from(nats.firstValue(pattern, payload)));
   });
 
   it('forwards login/start and returns only the authorization URL without cookies', async () => {
@@ -206,12 +208,6 @@ describe('WebAuthController', () => {
         roles: ['must-not-leak'],
         groups: ['must-not-leak'],
       },
-      sid: 'must-not-leak',
-      accessToken: 'must-not-leak',
-      refreshToken: 'must-not-leak',
-      idToken: 'must-not-leak',
-      claims: { sensitive: true },
-      resourceServer: 'must-not-leak',
     });
     const response = await request(app.getHttpServer())
       .post('/api/auth/client/context')
@@ -364,6 +360,18 @@ describe('WebAuthController', () => {
       expect(response.text).not.toContain('secret');
     }
   });
+
+  it('maps a client context timeout to a temporary authentication error', async () => {
+    nats.send.mockResolvedValueOnce(NEVER);
+    const response = await request(app.getHttpServer())
+      .post('/api/auth/client/context')
+      .set('Cookie', 'sid=' + sid)
+      .send({ tool: 'beneficiary' })
+      .expect(503);
+    expect(response.body.error.code).toBe('AUTH_SERVICE_UNAVAILABLE');
+    expect(response.headers['set-cookie']).toBeUndefined();
+    expectNoCache(response.headers);
+  }, 15_000);
 });
 
 function expectNoCache(headers: Record<string, string | string[]>): void {
@@ -381,6 +389,8 @@ function clientContextFixture() {
     clientRoles: ['read'],
     groups: ['/beneficiary'],
     contextExpiresAt: Date.now() + 60_000,
+    permissions: [{ resource: 'persons', scopes: ['read'] }],
+    permissionsExpiresAt: Date.now() + 60_000,
     sessionExpiresAt: Date.now() + 120_000,
     sessionAbsoluteExpiresAt: Date.now() + 240_000,
   };

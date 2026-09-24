@@ -150,23 +150,6 @@ export function sessionResponse(value: unknown): CheckWebSessionResponse {
   };
 }
 
-export function clientContextResponse(value: unknown): EnsureWebClientContextResponse {
-  const source = record(value);
-  if (source.authenticated !== true) throw new InvalidWebAuthResponseError();
-  return {
-    authenticated: true,
-    currentTool: requiredString(source.currentTool),
-    currentClient: requiredString(source.currentClient),
-    identity: identity(source.identity),
-    realmRoles: stringList(source.realmRoles),
-    clientRoles: stringList(source.clientRoles),
-    groups: stringList(source.groups),
-    contextExpiresAt: epochMilliseconds(source.contextExpiresAt),
-    sessionExpiresAt: epochMilliseconds(source.sessionExpiresAt),
-    sessionAbsoluteExpiresAt: epochMilliseconds(source.sessionAbsoluteExpiresAt),
-  };
-}
-
 export function authorizationResponse(value: unknown): CheckWebAuthorizationResponse {
   const source = record(value);
   if (Object.getPrototypeOf(source) !== Object.prototype) {
@@ -186,4 +169,74 @@ export function authorizationResponse(value: unknown): CheckWebAuthorizationResp
   )
     return { authorized: true, actor: authorizationActor(source.actor) };
   throw new InvalidWebAuthResponseError();
+}
+
+export function clientContextResponse(value: unknown): EnsureWebClientContextResponse {
+  const source = record(value);
+  const allowed = [
+    'authenticated',
+    'currentTool',
+    'currentClient',
+    'identity',
+    'realmRoles',
+    'clientRoles',
+    'groups',
+    'permissions',
+    'contextExpiresAt',
+    'permissionsExpiresAt',
+    'sessionExpiresAt',
+    'sessionAbsoluteExpiresAt',
+  ];
+  if (
+    Object.getPrototypeOf(source) !== Object.prototype ||
+    Object.keys(source).some((key) => !allowed.includes(key)) ||
+    Object.keys(source).length !== allowed.length ||
+    source.authenticated !== true ||
+    !Array.isArray(source.permissions)
+  )
+    throw new InvalidWebAuthResponseError();
+
+  const permissions = source.permissions.map((candidate) => {
+    const permission = record(candidate);
+    if (
+      Object.getPrototypeOf(permission) !== Object.prototype ||
+      Object.keys(permission).length !== 2 ||
+      !Object.prototype.hasOwnProperty.call(permission, 'resource') ||
+      !Object.prototype.hasOwnProperty.call(permission, 'scopes')
+    )
+      throw new InvalidWebAuthResponseError();
+    const resource = requiredString(permission.resource);
+    const scopes = stringList(permission.scopes);
+    if (
+      !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(resource) ||
+      scopes.some((scope) => !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(scope)) ||
+      new Set(scopes).size !== scopes.length
+    )
+      throw new InvalidWebAuthResponseError();
+    return { resource, scopes };
+  });
+  const contextExpiresAt = epochMilliseconds(source.contextExpiresAt);
+  const permissionsExpiresAt = epochMilliseconds(source.permissionsExpiresAt);
+  const sessionExpiresAt = epochMilliseconds(source.sessionExpiresAt);
+  const sessionAbsoluteExpiresAt = epochMilliseconds(source.sessionAbsoluteExpiresAt);
+  if (
+    permissionsExpiresAt > contextExpiresAt ||
+    contextExpiresAt > sessionExpiresAt ||
+    sessionExpiresAt > sessionAbsoluteExpiresAt
+  )
+    throw new InvalidWebAuthResponseError();
+  return {
+    authenticated: true,
+    currentTool: requiredString(source.currentTool),
+    currentClient: requiredString(source.currentClient),
+    identity: identity(source.identity),
+    realmRoles: stringList(source.realmRoles),
+    clientRoles: stringList(source.clientRoles),
+    groups: stringList(source.groups),
+    permissions,
+    contextExpiresAt,
+    permissionsExpiresAt,
+    sessionExpiresAt,
+    sessionAbsoluteExpiresAt,
+  };
 }
