@@ -1,5 +1,5 @@
 import { HttpException } from '@nestjs/common';
-import { publicWebAuthError } from './web-auth.errors';
+import { publicWebAuthError } from '../errors/web-auth.errors';
 
 const SID_PATTERN = /^[A-Za-z0-9_-]{43,128}$/;
 

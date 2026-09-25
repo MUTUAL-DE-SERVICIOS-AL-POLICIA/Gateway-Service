@@ -7,16 +7,15 @@ import {
   INestApplication,
   Injectable,
   NestInterceptor,
-  UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Test } from '@nestjs/testing';
 import { Observable, of, tap, throwError } from 'rxjs';
 import request from 'supertest';
-import { WebAuthorizationGuard } from 'src/auth/web-auth/web-authorization.guard';
-import { WebAuthorize, WebProtected } from 'src/auth/web-auth/web-authorization.decorators';
-import { WebAuthPatterns } from 'src/auth/web-auth/contracts/web-auth.contracts';
+import { WebAuthorizationGuard } from 'src/auth/guards/web-authorization.guard';
+import { WebController, WebPermission } from 'src/auth/decorators/web-authorization.decorators';
+import { WebAuthPatterns } from 'src/auth/contracts/web-auth.contracts';
 import { NatsService } from 'src/common/services/nats.service';
 
 jest.mock('src/config', () => ({ NATS_SERVICE: 'NATS_SERVICE' }));
@@ -32,19 +31,19 @@ class AuditProbeInterceptor implements NestInterceptor {
 }
 
 @Controller('authorization-pipeline')
-@UseGuards(WebAuthorizationGuard)
 @UseInterceptors(AuditProbeInterceptor)
-@WebAuthorize('beneficiary', 'persons')
-@WebProtected('read')
+@WebController('beneficiary', 'persons')
 class AuthorizationPipelineController {
   readonly handled = jest.fn(() => ({ ok: true }));
 
   @Get()
+  @WebPermission('read')
   handle() {
     return this.handled();
   }
 
   @Get('preexisting-user')
+  @WebPermission('read')
   handlePreexistingUser() {
     return this.handled();
   }

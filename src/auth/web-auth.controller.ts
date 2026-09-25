@@ -18,18 +18,18 @@ import {
   EnsureWebClientContextDto,
   ExchangeWebCodeDto,
   StartWebLoginDto,
-} from './dto';
-import { toPublicWebAuthException } from './web-auth.errors';
-import { WebAuthExceptionFilter } from './web-auth-exception.filter';
+} from './dto/web';
+import { toPublicWebAuthException } from './errors/web-auth.errors';
+import { WebAuthExceptionFilter } from './filters/web-auth-exception.filter';
 import {
   clientContextResponse,
   exchangeResponse,
   logoutResponse,
   sessionResponse,
   startResponse,
-} from './web-auth.responses';
-import { sidFromCookie } from './web-session-cookie';
-import { webNatsRequest } from './web-nats-request';
+} from './utils/web-auth.responses';
+import { sidFromCookie } from './utils/web-session-cookie';
+import { webNatsRequest } from './utils/web-nats-request';
 
 const WEB_AUTH_NATS_TIMEOUT_MS = 12_000;
 

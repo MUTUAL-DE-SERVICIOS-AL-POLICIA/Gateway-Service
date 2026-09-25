@@ -7,18 +7,11 @@ import {
   UploadedFile,
   UseInterceptors,
   Body,
-  UseGuards,
 } from '@nestjs/common';
 import { MessagePattern, Payload } from '@nestjs/microservices';
-import {
-  ApiBody,
-  ApiConsumes,
-  ApiCookieAuth,
-  ApiOperation,
-  ApiParam,
-  ApiTags,
-} from '@nestjs/swagger';
+import { ApiBody, ApiConsumes, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { WebController, WebSessionOnly } from 'src/auth/decorators/web-authorization.decorators';
 import {
   WhatsappService,
   SmsService,
@@ -28,9 +21,6 @@ import {
   SmsDto,
   WhatsappDto,
 } from 'src/common';
-import { WebAuthorizationGuard } from 'src/auth/web-auth/web-authorization.guard';
-import { WebAuthorize, WebProtected } from 'src/auth/web-auth/web-authorization.decorators';
-
 @ApiTags('common')
 @Controller('common')
 export class CommonController {
@@ -58,9 +48,8 @@ export class CommonController {
   }
 
   @Post('uploadChunk/file-dossier/create')
-  @ApiCookieAuth('web-session')
-  @WebAuthorize('beneficiary', 'affiliates.file_dossiers')
-  @WebProtected('write')
+  @WebController('beneficiary', 'affiliates')
+  @WebSessionOnly()
   @ApiOperation({ summary: 'Subir por chunks' })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -82,7 +71,6 @@ export class CommonController {
     },
   })
   @UseInterceptors(FileInterceptor('chunk'))
-  @UseGuards(WebAuthorizationGuard)
   async uploadChunkForFileDossierCreate(
     @UploadedFile() chunk: Express.Multer.File,
     @Body() body: any,
@@ -91,9 +79,8 @@ export class CommonController {
   }
 
   @Post('uploadChunk/file-dossier/update')
-  @ApiCookieAuth('web-session')
-  @WebAuthorize('beneficiary', 'affiliates.file_dossiers')
-  @WebProtected('update')
+  @WebController('beneficiary', 'affiliates')
+  @WebSessionOnly()
   @ApiOperation({ summary: 'Subir por chunks' })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -115,7 +102,6 @@ export class CommonController {
     },
   })
   @UseInterceptors(FileInterceptor('chunk'))
-  @UseGuards(WebAuthorizationGuard)
   async uploadChunkForFileDossierUpdate(
     @UploadedFile() chunk: Express.Multer.File,
     @Body() body: any,

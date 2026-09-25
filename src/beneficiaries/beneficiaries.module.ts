@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AffiliatesController } from './affiliates.controller';
 import { PersonsController } from './persons.controller';
-import { WebAuthorizationGuard } from 'src/auth/web-auth/web-authorization.guard';
+import { WebAuthorizationGuard } from 'src/auth/guards';
 
 @Module({
   controllers: [AffiliatesController, PersonsController],

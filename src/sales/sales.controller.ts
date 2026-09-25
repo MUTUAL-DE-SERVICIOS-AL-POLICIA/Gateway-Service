@@ -9,11 +9,9 @@ import {
   Query,
   Req,
   Res,
-  UseGuards,
   UseInterceptors
 } from '@nestjs/common';
 import {
-  ApiBearerAuth,
   ApiBody,
   ApiOperation,
   ApiParam,
@@ -24,13 +22,10 @@ import {
 } from '@nestjs/swagger';
 import { stringify } from 'csv-stringify/sync';
 import { Request, Response } from 'express';
-import { AuthGuard } from 'src/auth/guards';
 import { NatsService, PdfBufferService, RecordsService } from 'src/common';
 import { reciboFormal, reportSales } from 'src/common/templates';
 
 @ApiTags('sales')
-@ApiBearerAuth('msp')
-@UseGuards(AuthGuard)
 @UseInterceptors(RecordsService)
 @Controller('sales')
 export class SalesController {

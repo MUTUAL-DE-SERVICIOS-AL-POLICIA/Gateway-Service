@@ -6,7 +6,7 @@ import {
   HttpException,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
-import { publicWebAuthError, WebAuthGatewayErrorCode } from './web-auth.errors';
+import { publicWebAuthError, WebAuthGatewayErrorCode } from '../errors/web-auth.errors';
 
 const publicCodes = new Set<WebAuthGatewayErrorCode>([
   'INVALID_LOGIN_REQUEST',

@@ -6,11 +6,12 @@ import {
   METHOD_METADATA,
   PATH_METADATA,
 } from '@nestjs/common/constants';
-import { WebAuthorizationGuard } from 'src/auth/web-auth/web-authorization.guard';
+import { WebAuthorizationGuard } from 'src/auth/guards/web-authorization.guard';
 import {
-  WEB_AUTHORIZE_METADATA,
-  WEB_PROTECTED_METADATA,
-} from 'src/auth/web-auth/web-authorization.decorators';
+  WEB_CONTROLLER_METADATA,
+  WEB_PERMISSION_METADATA,
+  WEB_SESSION_ONLY_METADATA,
+} from 'src/auth/decorators/web-authorization.metadata';
 import { RecordsService } from 'src/common';
 import { CommonController } from 'src/common/common.controller';
 import { AffiliatesController } from './affiliates.controller';
@@ -239,11 +240,16 @@ describe('Beneficiary web authorization metadata', () => {
       const handler = (controller as any).prototype[method];
       expect(Reflect.getMetadata(METHOD_METADATA, handler)).toBe(verb);
       expect(Reflect.getMetadata(PATH_METADATA, handler)).toBe(path);
-      expect(Reflect.getMetadata(WEB_AUTHORIZE_METADATA, handler)).toEqual({
+      const baseResource = controller === PersonsController ? 'persons' : 'affiliates';
+      const subresource =
+        resource === baseResource ? undefined : resource.slice(baseResource.length + 1);
+      expect(Reflect.getMetadata(WEB_CONTROLLER_METADATA, controller)).toEqual({
         tool: 'beneficiary',
-        resource,
+        resource: baseResource,
       });
-      expect(Reflect.getMetadata(WEB_PROTECTED_METADATA, handler)).toEqual({ scope });
+      expect(Reflect.getMetadata(WEB_PERMISSION_METADATA, handler)).toEqual(
+        subresource ? { scope, subresource } : { scope },
+      );
     },
   );
 
@@ -262,17 +268,18 @@ describe('Beneficiary web authorization metadata', () => {
   });
 
   it.each([
-    ['uploadChunkForFileDossierCreate', 'uploadChunk/file-dossier/create', 'write'],
-    ['uploadChunkForFileDossierUpdate', 'uploadChunk/file-dossier/update', 'update'],
-  ])('protects CommonController.%s with fixed upload metadata', (method, path, scope) => {
+    ['uploadChunkForFileDossierCreate', 'uploadChunk/file-dossier/create'],
+    ['uploadChunkForFileDossierUpdate', 'uploadChunk/file-dossier/update'],
+  ])('protects CommonController.%s with a beneficiary session', (method, path) => {
     const handler = (CommonController.prototype as any)[method];
     expect(Reflect.getMetadata(METHOD_METADATA, handler)).toBe(RequestMethod.POST);
     expect(Reflect.getMetadata(PATH_METADATA, handler)).toBe(path);
-    expect(Reflect.getMetadata(WEB_AUTHORIZE_METADATA, handler)).toEqual({
+    expect(Reflect.getMetadata(WEB_CONTROLLER_METADATA, handler)).toEqual({
       tool: 'beneficiary',
-      resource: 'affiliates.file_dossiers',
+      resource: 'affiliates',
     });
-    expect(Reflect.getMetadata(WEB_PROTECTED_METADATA, handler)).toEqual({ scope });
+    expect(Reflect.getMetadata(WEB_PERMISSION_METADATA, handler)).toBeUndefined();
+    expect(Reflect.getMetadata(WEB_SESSION_ONLY_METADATA, handler)).toBe(true);
     expect(Reflect.getMetadata(GUARDS_METADATA, handler)).toEqual([WebAuthorizationGuard]);
   });
 

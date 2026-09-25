@@ -4,8 +4,8 @@ import { Reflector } from '@nestjs/core';
 import { Test } from '@nestjs/testing';
 import { of } from 'rxjs';
 import request from 'supertest';
-import { WebAuthorizationGuard } from 'src/auth/web-auth/web-authorization.guard';
-import { WebAuthPatterns } from 'src/auth/web-auth/contracts/web-auth.contracts';
+import { WebAuthorizationGuard } from 'src/auth/guards/web-authorization.guard';
+import { WebAuthPatterns } from 'src/auth/contracts/web-auth.contracts';
 import { NatsService as WebNatsService } from 'src/common/services/nats.service';
 import {
   BcbService,
@@ -55,15 +55,29 @@ describe('CommonController web uploadChunk routes', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    const now = Date.now();
     nats.send.mockResolvedValue(
-      of({ authorized: true, actor: { sub: 'subject', preferredUsername: 'operator' } }),
+      of({
+        authenticated: true,
+        currentTool: 'beneficiary',
+        currentClient: 'beneficiary-interface',
+        identity: { sub: 'subject', preferredUsername: 'operator' },
+        realmRoles: [],
+        clientRoles: [],
+        groups: [],
+        permissions: [],
+        contextExpiresAt: now + 30_000,
+        permissionsExpiresAt: now + 30_000,
+        sessionExpiresAt: now + 60_000,
+        sessionAbsoluteExpiresAt: now + 120_000,
+      }),
     );
   });
 
   it.each([
     ['create', 'write'],
     ['update', 'update'],
-  ])('preserves multipart behavior for %s with fixed %s authorization', async (route, scope) => {
+  ])('preserves multipart behavior for %s with a beneficiary session', async (route) => {
     const response = await request(app.getHttpServer())
       .post(`/api/common/uploadChunk/file-dossier/${route}`)
       .set('Cookie', `sid=${sid}`)
@@ -77,11 +91,9 @@ describe('CommonController web uploadChunk routes', () => {
       .expect(201);
 
     expect(nats.send).toHaveBeenCalledTimes(1);
-    expect(nats.send).toHaveBeenCalledWith(WebAuthPatterns.authorizationCheck, {
+    expect(nats.send).toHaveBeenCalledWith(WebAuthPatterns.clientEnsure, {
       sid,
       tool: 'beneficiary',
-      resource: 'affiliates.file_dossiers',
-      scope,
     });
     const [chunk, nameChunk] = ftp.uploadChunk.mock.calls[0];
     expect(ftp.uploadChunk).toHaveBeenCalledTimes(1);

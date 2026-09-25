@@ -6,7 +6,7 @@ import { from, NEVER } from 'rxjs';
 import { NatsService } from 'src/common/services/nats.service';
 import { WebAuthPatterns } from './contracts/web-auth.contracts';
 import { WebAuthController } from './web-auth.controller';
-import { WebAuthExceptionFilter } from './web-auth-exception.filter';
+import { WebAuthExceptionFilter } from './filters/web-auth-exception.filter';
 
 jest.mock('src/config', () => ({ NATS_SERVICE: 'NATS_SERVICE' }));
 

@@ -6,7 +6,7 @@ import {
   LogoutWebSessionResponse,
   PresentationIdentity,
   StartWebLoginResponse,
-} from './contracts/web-auth.contracts';
+} from '../contracts/web-auth.contracts';
 
 export class InvalidWebAuthResponseError extends Error {}
 

@@ -9,12 +9,10 @@ import {
   Post,
   Res,
   UploadedFiles,
-  UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { AnyFilesInterceptor } from '@nestjs/platform-express';
 import {
-  ApiCookieAuth,
   ApiBody,
   ApiConsumes,
   ApiOperation,
@@ -23,13 +21,11 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { Response } from 'express';
-import { WebAuthorizationGuard } from 'src/auth/web-auth/web-authorization.guard';
-import { WebAuthorize, WebProtected } from 'src/auth/web-auth/web-authorization.decorators';
+import { WebController, WebPermission } from 'src/auth/decorators/web-authorization.decorators';
 import { FtpService, NatsService, RecordsService } from 'src/common';
 
 @ApiTags('beneficiaries')
-@ApiCookieAuth('web-session')
-@UseGuards(WebAuthorizationGuard)
+@WebController('beneficiary', 'affiliates')
 @UseInterceptors(RecordsService)
 @Controller('beneficiaries/affiliates')
 export class AffiliatesController {
@@ -39,16 +35,14 @@ export class AffiliatesController {
   ) {}
 
   @Get('createFileDossier/:affiliateId')
-  @WebAuthorize('beneficiary', 'affiliates.file_dossiers')
-  @WebProtected('read')
+  @WebPermission('read', 'file_dossiers')
   @ApiResponse({ status: 200, description: 'Obtener todos los tipos de expedients' })
   async createFileDossier(@Param('affiliateId') affiliateId: string) {
     return this.nats.send('affiliate.createFileDossier', { affiliateId });
   }
 
   @Get('createDocument/:affiliateId')
-  @WebAuthorize('beneficiary', 'affiliates.documents')
-  @WebProtected('read')
+  @WebPermission('read', 'documents')
   @ApiResponse({
     status: 200,
     description: 'Obtener todos los datos para crear documento del afiliado',
@@ -58,16 +52,14 @@ export class AffiliatesController {
   }
 
   @Get(':affiliateId')
-  @WebAuthorize('beneficiary', 'affiliates')
-  @WebProtected('read')
+  @WebPermission('read')
   @ApiResponse({ status: 200, description: 'Mostrar datos del afiliado' })
   async findOneData(@Param('affiliateId') affiliateId: string) {
     return this.nats.send('affiliate.findOneData', { affiliateId });
   }
 
   @Post(':affiliateId/document/:procedureDocumentId')
-  @WebAuthorize('beneficiary', 'affiliates.documents')
-  @WebProtected('write')
+  @WebPermission('write', 'documents')
   @ApiOperation({ summary: 'Enlazar y Subir Documento del Afiliado' })
   @ApiResponse({ status: 200, description: 'El documento fue subido exitosamente.' })
   @ApiResponse({
@@ -132,8 +124,7 @@ export class AffiliatesController {
   }
 
   @Patch(':affiliateId/document/:procedureDocumentId')
-  @WebAuthorize('beneficiary', 'affiliates.documents')
-  @WebProtected('update')
+  @WebPermission('update', 'documents')
   @ApiOperation({ summary: 'Actualizar Documento del Afiliado' })
   @ApiResponse({ status: 200, description: 'El documento fue actualizado exitosamente.' })
   @ApiResponse({
@@ -198,8 +189,7 @@ export class AffiliatesController {
   }
 
   @Delete(':affiliateId/documents/:procedureDocumentId')
-  @WebAuthorize('beneficiary', 'affiliates.documents')
-  @WebProtected('delete')
+  @WebPermission('delete', 'documents')
   @ApiResponse({ status: 200, description: 'Eliminar el documento del Afiliado' })
   async deleteDocument(
     @Param('affiliateId') affiliateId: string,
@@ -221,24 +211,21 @@ export class AffiliatesController {
   }
 
   @Get(':affiliateId/documents')
-  @WebAuthorize('beneficiary', 'affiliates.documents')
-  @WebProtected('read')
+  @WebPermission('read', 'documents')
   @ApiResponse({ status: 200, description: 'Mostrar Documentos del Afiliado' })
   async showDocuments(@Param('affiliateId') affiliateId: string) {
     return this.nats.send('affiliate.showDocuments', { affiliateId });
   }
 
   @Get(':affiliateId/showFileDossiers')
-  @WebAuthorize('beneficiary', 'affiliates.file_dossiers')
-  @WebProtected('read')
+  @WebPermission('read', 'file_dossiers')
   @ApiResponse({ status: 200, description: 'Mostrar Expedientes del Afiliado' })
   async showFileDossiers(@Param('affiliateId') affiliateId: string) {
     return this.nats.send('affiliate.showFileDossiers', { affiliateId });
   }
 
   @Post(':affiliateId/fileDossier/:fileDossierId')
-  @WebAuthorize('beneficiary', 'affiliates.file_dossiers')
-  @WebProtected('write')
+  @WebPermission('write', 'file_dossiers')
   @ApiOperation({
     summary: 'Unir chunks y subir expediente del afiliado al FTP',
     description: `Este endpoint concatena los chunks previamente subidos al servidor temporal
@@ -299,8 +286,7 @@ export class AffiliatesController {
   }
 
   @Patch(':affiliateId/fileDossier/:fileDossierId')
-  @WebAuthorize('beneficiary', 'affiliates.file_dossiers')
-  @WebProtected('update')
+  @WebPermission('update', 'file_dossiers')
   @ApiOperation({
     summary: 'Unir chunks y actualizar expediente del afiliado al FTP',
     description: `Este endpoint concatena los chunks previamente subidos al servidor temporal
@@ -362,8 +348,7 @@ export class AffiliatesController {
   }
 
   @Get(':affiliateId/fileDossiers/:fileDossierId')
-  @WebAuthorize('beneficiary', 'affiliates.file_dossiers')
-  @WebProtected('download')
+  @WebPermission('download', 'file_dossiers')
   @ApiResponse({ status: 200, description: 'Buscar el expediente del Afiliado' })
   async findFileDossier(
     @Param('affiliateId') affiliateId: string,
@@ -384,8 +369,7 @@ export class AffiliatesController {
   }
 
   @Get(':affiliateId/documents/:procedureDocumentId')
-  @WebAuthorize('beneficiary', 'affiliates.documents')
-  @WebProtected('download')
+  @WebPermission('download', 'documents')
   @ApiResponse({ status: 200, description: 'Buscar el documento del Afiliado' })
   async findDocument(
     @Param('affiliateId') affiliateId: string,
@@ -407,8 +391,7 @@ export class AffiliatesController {
   }
 
   @Delete(':affiliateId/fileDossiers/:fileDossierId')
-  @WebAuthorize('beneficiary', 'affiliates.file_dossiers')
-  @WebProtected('delete')
+  @WebPermission('delete', 'file_dossiers')
   @ApiResponse({ status: 200, description: 'Eliminar el expediente del Afiliado' })
   async deleteFileDossier(
     @Param('affiliateId') affiliateId: string,
@@ -430,8 +413,7 @@ export class AffiliatesController {
   }
 
   @Get(':affiliateId/modality/:modalityId/collate')
-  @WebAuthorize('beneficiary', 'affiliates.documents')
-  @WebProtected('collate')
+  @WebPermission('collate', 'documents')
   @ApiResponse({
     status: 200,
     description: 'Cotejar documentos del Afiliado con los documentos requeridos de la modalidad',
@@ -444,8 +426,7 @@ export class AffiliatesController {
   }
 
   @Post('documents/analysis')
-  @WebAuthorize('beneficiary', 'affiliates.documents')
-  @WebProtected('import')
+  @WebPermission('import', 'documents')
   async documentsAnalysis(@Body() body: { path: string; user: string; pass: string }) {
     const { path, user, pass } = body;
 
@@ -453,8 +434,7 @@ export class AffiliatesController {
   }
 
   @Post('documents/imports')
-  @WebAuthorize('beneficiary', 'affiliates.documents')
-  @WebProtected('import')
+  @WebPermission('import', 'documents')
   async documentsImports(@Body() body: object) {
     return this.nats.send('affiliate.documentsImports', body);
   }
