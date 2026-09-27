@@ -11,7 +11,7 @@ import {
 import { MessagePattern, Payload } from '@nestjs/microservices';
 import { ApiBody, ApiConsumes, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { WebController, WebSessionOnly } from 'src/auth/decorators/web-authorization.decorators';
+import { WebSharedSession } from 'src/auth/decorators/web-authorization.decorators';
 import {
   WhatsappService,
   SmsService,
@@ -48,8 +48,7 @@ export class CommonController {
   }
 
   @Post('uploadChunk/file-dossier/create')
-  @WebController('beneficiary', 'affiliates')
-  @WebSessionOnly()
+  @WebSharedSession()
   @ApiOperation({ summary: 'Subir por chunks' })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -79,8 +78,7 @@ export class CommonController {
   }
 
   @Post('uploadChunk/file-dossier/update')
-  @WebController('beneficiary', 'affiliates')
-  @WebSessionOnly()
+  @WebSharedSession()
   @ApiOperation({ summary: 'Subir por chunks' })
   @ApiConsumes('multipart/form-data')
   @ApiBody({

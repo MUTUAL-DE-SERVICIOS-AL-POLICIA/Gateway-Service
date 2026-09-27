@@ -7,10 +7,12 @@ import {
   WebController,
   WebPermission,
   WebSessionOnly,
+  WebSharedSession,
 } from '../decorators/web-authorization.decorators';
 import {
   WEB_CONTROLLER_METADATA,
   WEB_PERMISSION_METADATA,
+  WEB_SHARED_SESSION_METADATA,
   WEB_SESSION_ONLY_METADATA,
 } from '../decorators/web-authorization.metadata';
 import { NatsService } from 'src/common/services/nats.service';
@@ -89,32 +91,47 @@ describe('WebAuthorizationGuard', () => {
     });
   });
 
-  it('explicitly supports session-only handlers through client.ensure', async () => {
+  it('supports session-only handlers in a fixed web controller through client.check', async () => {
     const { handler, controller } = metadataContext(undefined, true);
-    const now = Date.now();
-    nats.send.mockResolvedValueOnce(
-      of({
-        authenticated: true,
-        currentTool: 'beneficiary',
-        currentClient: 'beneficiary-interface',
-        identity: actor,
-        realmRoles: [],
-        clientRoles: [],
-        groups: [],
-        permissions: [],
-        contextExpiresAt: now + 30_000,
-        permissionsExpiresAt: now + 20_000,
-        sessionExpiresAt: now + 40_000,
-        sessionAbsoluteExpiresAt: now + 50_000,
-      }),
-    );
+    nats.send.mockResolvedValueOnce(of({ authenticated: true, currentTool: 'beneficiary', actor }));
     const request: Record<string, any> = { headers: { cookie: `sid=${sid}` } };
     await guard.canActivate(context(request, handler, controller));
-    expect(nats.send).toHaveBeenCalledWith(WebAuthPatterns.clientEnsure, {
+    expect(nats.send).toHaveBeenCalledWith(WebAuthPatterns.clientCheck, {
       sid,
       tool: 'beneficiary',
     });
     expect(request.user).toEqual({ username: 'operator', name: 'Operator' });
+  });
+
+  it('accepts a shared session tool only from the dedicated header', async () => {
+    const handler = function handler() {};
+    Reflect.defineMetadata(WEB_SHARED_SESSION_METADATA, true, handler);
+    nats.send.mockResolvedValueOnce(of({ authenticated: true, currentTool: 'sales', actor }));
+    const request: Record<string, any> = {
+      headers: { cookie: `sid=${sid}`, 'x-muserpol-tool': 'sales' },
+      body: { tool: 'beneficiary' },
+      query: { tool: 'beneficiary' },
+    };
+    await guard.canActivate(context(request, handler));
+    expect(nats.send).toHaveBeenCalledWith(WebAuthPatterns.clientCheck, {
+      sid,
+      tool: 'sales',
+    });
+  });
+
+  it.each([
+    ['missing', undefined],
+    ['malformed', 'sales,beneficiary'],
+    ['unknown syntax', 'Sales'],
+  ])('rejects a %s shared tool header before NATS', async (_label, value) => {
+    const handler = function handler() {};
+    Reflect.defineMetadata(WEB_SHARED_SESSION_METADATA, true, handler);
+    const headers: Record<string, string> = { cookie: `sid=${sid}` };
+    if (value !== undefined) headers['x-muserpol-tool'] = value;
+    await expect(guard.canActivate(context({ headers }, handler))).rejects.toMatchObject({
+      status: 400,
+    });
+    expect(nats.send).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -197,12 +214,16 @@ describe('WebAuthorizationGuard', () => {
     class Controller {}
     const permissionHandler = function permissionHandler() {};
     const sessionHandler = function sessionHandler() {};
+    const sharedHandler = function sharedHandler() {};
     WebController('beneficiary', 'persons')(Controller);
     WebPermission('read', 'records')(Controller.prototype, 'permissionHandler', {
       value: permissionHandler,
     } as PropertyDescriptor);
     WebSessionOnly()(Controller.prototype, 'sessionHandler', {
       value: sessionHandler,
+    } as PropertyDescriptor);
+    WebSharedSession()(Controller.prototype, 'sharedHandler', {
+      value: sharedHandler,
     } as PropertyDescriptor);
     expect(Reflect.getMetadata(WEB_CONTROLLER_METADATA, Controller)).toEqual({
       tool: 'beneficiary',
@@ -213,6 +234,7 @@ describe('WebAuthorizationGuard', () => {
       subresource: 'records',
     });
     expect(Reflect.getMetadata(WEB_SESSION_ONLY_METADATA, sessionHandler)).toBe(true);
+    expect(Reflect.getMetadata(WEB_SHARED_SESSION_METADATA, sharedHandler)).toBe(true);
     expect(Object.isFrozen(Reflect.getMetadata(WEB_PERMISSION_METADATA, permissionHandler))).toBe(
       true,
     );

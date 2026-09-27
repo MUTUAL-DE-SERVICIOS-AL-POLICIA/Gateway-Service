@@ -55,21 +55,11 @@ describe('CommonController web uploadChunk routes', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    const now = Date.now();
     nats.send.mockResolvedValue(
       of({
         authenticated: true,
         currentTool: 'beneficiary',
-        currentClient: 'beneficiary-interface',
-        identity: { sub: 'subject', preferredUsername: 'operator' },
-        realmRoles: [],
-        clientRoles: [],
-        groups: [],
-        permissions: [],
-        contextExpiresAt: now + 30_000,
-        permissionsExpiresAt: now + 30_000,
-        sessionExpiresAt: now + 60_000,
-        sessionAbsoluteExpiresAt: now + 120_000,
+        actor: { sub: 'subject', preferredUsername: 'operator' },
       }),
     );
   });
@@ -81,6 +71,7 @@ describe('CommonController web uploadChunk routes', () => {
     const response = await request(app.getHttpServer())
       .post(`/api/common/uploadChunk/file-dossier/${route}`)
       .set('Cookie', `sid=${sid}`)
+      .set('X-Muserpol-Tool', 'beneficiary')
       .field('nameChunk', 'file.part-001')
       .field('operation', 'attacker-operation')
       .field('tool', 'attacker-tool')
@@ -91,7 +82,7 @@ describe('CommonController web uploadChunk routes', () => {
       .expect(201);
 
     expect(nats.send).toHaveBeenCalledTimes(1);
-    expect(nats.send).toHaveBeenCalledWith(WebAuthPatterns.clientEnsure, {
+    expect(nats.send).toHaveBeenCalledWith(WebAuthPatterns.clientCheck, {
       sid,
       tool: 'beneficiary',
     });

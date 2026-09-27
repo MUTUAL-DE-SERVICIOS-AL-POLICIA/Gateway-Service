@@ -11,3 +11,4 @@ export interface WebPermissionMetadata {
 export const WEB_CONTROLLER_METADATA = Symbol('web-auth:controller');
 export const WEB_PERMISSION_METADATA = Symbol('web-auth:permission');
 export const WEB_SESSION_ONLY_METADATA = Symbol('web-auth:session-only');
+export const WEB_SHARED_SESSION_METADATA = Symbol('web-auth:shared-session');

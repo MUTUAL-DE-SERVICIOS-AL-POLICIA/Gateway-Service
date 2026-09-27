@@ -4,6 +4,7 @@ import { WebAuthorizationGuard } from '../guards/web-authorization.guard';
 import {
   WEB_CONTROLLER_METADATA,
   WEB_PERMISSION_METADATA,
+  WEB_SHARED_SESSION_METADATA,
   WEB_SESSION_ONLY_METADATA,
 } from './web-authorization.metadata';
 
@@ -21,3 +22,10 @@ export const WebPermission = (scope: string, subresource?: string) =>
   );
 
 export const WebSessionOnly = () => SetMetadata(WEB_SESSION_ONLY_METADATA, true);
+
+export const WebSharedSession = () =>
+  applyDecorators(
+    SetMetadata(WEB_SHARED_SESSION_METADATA, true),
+    UseGuards(WebAuthorizationGuard),
+    ApiCookieAuth('web-session'),
+  );

@@ -6,12 +6,13 @@ import { WebAuthPatterns } from '../contracts/web-auth.contracts';
 import {
   WEB_CONTROLLER_METADATA,
   WEB_PERMISSION_METADATA,
+  WEB_SHARED_SESSION_METADATA,
   WEB_SESSION_ONLY_METADATA,
   WebControllerMetadata,
   WebPermissionMetadata,
 } from '../decorators/web-authorization.metadata';
 import { publicWebAuthError, toPublicWebAuthException } from '../errors/web-auth.errors';
-import { clientContextResponse, authorizationResponse } from '../utils/web-auth.responses';
+import { authorizationResponse, clientCheckResponse } from '../utils/web-auth.responses';
 import { webNatsRequest } from '../utils/web-nats-request';
 import { setWebNoStoreHeaders } from '../utils/web-no-store';
 import { sidFromCookie } from '../utils/web-session-cookie';
@@ -21,6 +22,7 @@ const AUTHORIZATION_NATS_TIMEOUT_MS = 5_000;
 const TOOL_KEY = /^[a-z][a-z0-9-]{0,63}$/;
 const AUTHORIZATION_IDENTIFIER = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
 const SUBRESOURCE_IDENTIFIER = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/;
+const WEB_TOOL_HEADER = 'x-muserpol-tool';
 
 interface WebAuthorizedRequest extends Request {
   user?: {
@@ -55,11 +57,17 @@ export class WebAuthorizationGuard implements CanActivate {
     );
     const sessionOnly =
       this.reflector.get<unknown>(WEB_SESSION_ONLY_METADATA, context.getHandler()) === true;
+    const sharedSession =
+      this.reflector.get<unknown>(WEB_SHARED_SESSION_METADATA, context.getHandler()) === true;
+    const controllerMode = validControllerMetadata(controller);
+    const validControllerMode =
+      controllerMode &&
+      !sharedSession &&
+      Number(permission !== undefined) + Number(sessionOnly) === 1;
+    const validSharedMode =
+      controller === undefined && permission === undefined && !sessionOnly && sharedSession;
 
-    if (
-      !validControllerMetadata(controller) ||
-      Number(permission !== undefined) + Number(sessionOnly) !== 1
-    ) {
+    if (!validControllerMode && !validSharedMode) {
       throw publicException('INVALID_AUTHORIZATION_REQUEST');
     }
     if (permission !== undefined && !validPermissionMetadata(permission)) {
@@ -73,7 +81,7 @@ export class WebAuthorizationGuard implements CanActivate {
     const sid = sidFromCookie(request.headers.cookie);
 
     try {
-      if (permission !== undefined) {
+      if (permission !== undefined && controllerMode) {
         const resource = permission.subresource
           ? `${controller.resource}.${permission.subresource}`
           : controller.resource;
@@ -91,17 +99,19 @@ export class WebAuthorizationGuard implements CanActivate {
           name: response.actor.name,
         };
       } else {
-        const response = clientContextResponse(
+        const tool = controllerMode ? controller.tool : toolFromInternalHeader(request);
+        const response = clientCheckResponse(
           await webNatsRequest(
             this.nats,
-            WebAuthPatterns.clientEnsure,
-            { sid, tool: controller.tool },
+            WebAuthPatterns.clientCheck,
+            { sid, tool },
             AUTHORIZATION_NATS_TIMEOUT_MS,
           ),
         );
+        if (response.currentTool !== tool) throw new Error('Invalid web client check response');
         request.user = {
-          username: response.identity.preferredUsername ?? response.identity.sub,
-          name: response.identity.name,
+          username: response.actor.preferredUsername ?? response.actor.sub,
+          name: response.actor.name,
         };
       }
       return true;
@@ -113,6 +123,13 @@ export class WebAuthorizationGuard implements CanActivate {
       throw toPublicWebAuthException(error);
     }
   }
+}
+
+function toolFromInternalHeader(request: Request): string {
+  const value = request.headers[WEB_TOOL_HEADER];
+  if (typeof value !== 'string' || !TOOL_KEY.test(value))
+    throw publicException('INVALID_AUTHORIZATION_REQUEST');
+  return value;
 }
 
 function validControllerMetadata(value: unknown): value is WebControllerMetadata {

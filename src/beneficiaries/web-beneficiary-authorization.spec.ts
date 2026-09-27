@@ -10,6 +10,7 @@ import { WebAuthorizationGuard } from 'src/auth/guards/web-authorization.guard';
 import {
   WEB_CONTROLLER_METADATA,
   WEB_PERMISSION_METADATA,
+  WEB_SHARED_SESSION_METADATA,
   WEB_SESSION_ONLY_METADATA,
 } from 'src/auth/decorators/web-authorization.metadata';
 import { RecordsService } from 'src/common';
@@ -274,12 +275,10 @@ describe('Beneficiary web authorization metadata', () => {
     const handler = (CommonController.prototype as any)[method];
     expect(Reflect.getMetadata(METHOD_METADATA, handler)).toBe(RequestMethod.POST);
     expect(Reflect.getMetadata(PATH_METADATA, handler)).toBe(path);
-    expect(Reflect.getMetadata(WEB_CONTROLLER_METADATA, handler)).toEqual({
-      tool: 'beneficiary',
-      resource: 'affiliates',
-    });
+    expect(Reflect.getMetadata(WEB_CONTROLLER_METADATA, handler)).toBeUndefined();
     expect(Reflect.getMetadata(WEB_PERMISSION_METADATA, handler)).toBeUndefined();
-    expect(Reflect.getMetadata(WEB_SESSION_ONLY_METADATA, handler)).toBe(true);
+    expect(Reflect.getMetadata(WEB_SESSION_ONLY_METADATA, handler)).toBeUndefined();
+    expect(Reflect.getMetadata(WEB_SHARED_SESSION_METADATA, handler)).toBe(true);
     expect(Reflect.getMetadata(GUARDS_METADATA, handler)).toEqual([WebAuthorizationGuard]);
   });
 

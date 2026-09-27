@@ -1,5 +1,6 @@
 import {
   CheckWebAuthorizationResponse,
+  CheckWebClientResponse,
   CheckWebSessionResponse,
   EnsureWebClientContextResponse,
   ExchangeWebCodeResponse,
@@ -169,6 +170,23 @@ export function authorizationResponse(value: unknown): CheckWebAuthorizationResp
   )
     return { authorized: true, actor: authorizationActor(source.actor) };
   throw new InvalidWebAuthResponseError();
+}
+
+export function clientCheckResponse(value: unknown): CheckWebClientResponse {
+  const source = record(value);
+  if (
+    Object.getPrototypeOf(source) !== Object.prototype ||
+    Object.keys(source).length !== 3 ||
+    source.authenticated !== true ||
+    !Object.prototype.hasOwnProperty.call(source, 'currentTool') ||
+    !Object.prototype.hasOwnProperty.call(source, 'actor')
+  )
+    throw new InvalidWebAuthResponseError();
+  return {
+    authenticated: true,
+    currentTool: requiredString(source.currentTool),
+    actor: authorizationActor(source.actor),
+  };
 }
 
 export function clientContextResponse(value: unknown): EnsureWebClientContextResponse {
