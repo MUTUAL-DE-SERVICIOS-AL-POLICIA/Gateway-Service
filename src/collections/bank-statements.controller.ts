@@ -1,27 +1,13 @@
-import {
-  Controller,
-  UseGuards,
-  Get,
-  Post,
-  Body,
-  UploadedFile,
-} from '@nestjs/common';
+import { Body, Controller, Get, Post, UploadedFile, UseInterceptors } from '@nestjs/common';
 
 import { FileInterceptor } from '@nestjs/platform-express';
-import { UseInterceptors } from '@nestjs/common';
-
-import {
-  ApiBearerAuth,
-  ApiResponse,
-  ApiTags,
-} from '@nestjs/swagger';
+import { ApiResponse, ApiTags } from '@nestjs/swagger';
 
 import { NatsService, ImportCsvService } from 'src/common';
-import { AuthGuard } from 'src/auth/guards';
+import { WebController, WebSessionOnly } from 'src/auth/decorators/web-authorization.decorators';
 
 @ApiTags('collections')
-@ApiBearerAuth('msp')
-@UseGuards(AuthGuard)
+@WebController('collections', 'bank_statements')
 @Controller('collections/bankStatements')
 export class BankStatementsController {
   constructor(
@@ -30,6 +16,7 @@ export class BankStatementsController {
   ) {}
 
   @Get('findAll')
+  @WebSessionOnly()
   @ApiResponse({
     status: 200,
     description: 'Obtener todas las transacciones',
@@ -39,31 +26,31 @@ export class BankStatementsController {
   }
 
   @Post('import')
+  @WebSessionOnly()
   @UseInterceptors(FileInterceptor('file'))
   @ApiResponse({
     status: 200,
     description: 'Importar declaraciones bancarias',
   })
   async importBankStatements(@UploadedFile() file: Express.Multer.File, @Body() body: any) {
-
-    const requiredColumns = ['date', 'operationCode', 'documentNumber', 'gloss', 'transferredAccount', 'credits', 'state'];
+    const requiredColumns = [
+      'date',
+      'operationCode',
+      'documentNumber',
+      'gloss',
+      'transferredAccount',
+      'credits',
+      'state',
+    ];
     const { error, message, data } = await this.importCsv.importCsv(file, requiredColumns);
-    
+
     if (error) {
       return {
         error: error,
         message,
-      }
+      };
     }
 
     return await this.nats.firstValue('collections.importBankStatements', { data });
-
   }
-
 }
-
-
-
-
-
-

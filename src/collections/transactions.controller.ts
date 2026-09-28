@@ -1,29 +1,18 @@
-import {
-  Controller,
-  Get,
-  Param,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Get } from '@nestjs/common';
 
-import {
-  ApiBearerAuth,
-  ApiResponse,
-  ApiTags,
-} from '@nestjs/swagger';
+import { ApiResponse, ApiTags } from '@nestjs/swagger';
 
 import { NatsService } from 'src/common';
-import { AuthGuard } from 'src/auth/guards';
+import { WebController, WebSessionOnly } from 'src/auth/decorators/web-authorization.decorators';
 
 @ApiTags('collections')
-@ApiBearerAuth('msp')
-@UseGuards(AuthGuard)
+@WebController('collections', 'transactions')
 @Controller('collections/transactions')
 export class TransactionsController {
-  constructor(
-    private readonly nats: NatsService,
-  ) {}
+  constructor(private readonly nats: NatsService) {}
 
   @Get('findAll')
+  @WebSessionOnly()
   @ApiResponse({
     status: 200,
     description: 'Obtener todas las transacciones',
@@ -31,11 +20,4 @@ export class TransactionsController {
   async findAll() {
     return this.nats.send('collections.findAll', {});
   }
-
 }
-
-
-
-
-
-
