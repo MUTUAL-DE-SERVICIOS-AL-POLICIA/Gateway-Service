@@ -32,7 +32,7 @@ export class RecordsService implements NestInterceptor {
     metadata: Record<string, any>,
     maxLength = 50,
     excludeKeys: string[] = ['message'],
-    sensitiveKeys: string[] = ['password', 'pass', 'wsqFingerprints', 'attachments'],
+    sensitiveKeys: string[] = ['password', 'pass', 'importId', 'wsqFingerprints', 'attachments'],
     neverTruncate = ['affiliateId', 'username', 'tokenId'],
   ): Record<string, any> {
     const result: Record<string, any> = {};
