@@ -1,79 +1,23 @@
 import {
-    Body,
-    Controller,
-    Delete,
-    Get,
-    Post,
-    Req,
-    Res,
-    UseGuards,
-    UseInterceptors,
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Post,
+  Req,
+  UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { Response } from 'express';
+import { ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { AuthAppMobileGuard } from 'src/auth/guards';
 import { NatsService, RecordsService } from 'src/common';
-import { LoginAppMobileDto, LoginUserDto } from './dto';
-import { CurrentUser } from './interfaces/current-user.interface';
+import { LoginAppMobileDto } from './dto';
 
-@ApiBearerAuth('msp')
 @ApiTags('auth')
 @UseInterceptors(RecordsService)
 @Controller('auth')
 export class AuthController {
   constructor(private readonly nats: NatsService) {}
-
-  @ApiOperation({ summary: 'Auth Web - loginUser' })
-  @ApiBody({
-    schema: {
-      type: 'object',
-      properties: {
-        username: { type: 'string', example: 'numeroCI' },
-        password: { type: 'string', example: '71931166' },
-      },
-    },
-  })
-  @Post('login')
-  async loginHubWeb(
-    @Body() loginUserDto: LoginUserDto,
-    @Res({ passthrough: true }) res: Response,
-  ): Promise<any> {
-    try {
-      const data: CurrentUser = await this.nats.firstValue('auth.login', loginUserDto);
-      const timeShort = 4;
-      const oneHourMiliseconds = 3600000;
-      res.cookie('msp', data.access_token, {
-        path: '/',
-        httpOnly: true,
-        sameSite: 'strict',
-        expires: new Date(Date.now() + timeShort * oneHourMiliseconds),
-      });
-
-      return {
-        message: 'Login successful',
-        user: data.user,
-        access: data.access,
-      };
-    } catch {
-      return {
-        error: true,
-        message: 'Credenciales inválidas',
-      };
-    }
-  }
-
-  @ApiOperation({ summary: 'Auth Web - logout' })
-  @Get('logout')
-  async logout(@Res() res: Response): Promise<void> {
-    res.clearCookie('msp', {
-      path: '/',
-      httpOnly: true,
-      sameSite: 'strict',
-    });
-    res.status(200).json({
-      message: 'Logout successful',
-    });
-  }
 
   @ApiOperation({ summary: 'Auth AppMobile - loginAppMobile' })
   @ApiResponse({ status: 200, description: 'Login AppMobile' })
@@ -128,12 +72,9 @@ export class AuthController {
     return await this.nats.firstValue('auth.credentialsCitizenshipDigital', {});
   }
 
-  
-
   // Código para generar token para el BCB Test
   @Get('generateBcbJwt')
   async generateBcbJwt() {
     return await this.nats.firstValue('authBcb.generateJwt', {});
   }
-
 }

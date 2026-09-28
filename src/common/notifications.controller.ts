@@ -77,7 +77,7 @@ export class NotificationsController {
       required: ['idQR', 'eif', 'codMoneda', 'estado', 'metaData'],
     },
   })
-  @ApiBearerAuth('msp')
+  @ApiBearerAuth('bcb')
   @UseGuards(AuthBcbGuard)
   @Post('paymentQr')
   async paymentNotification(@Body() data: BcbPaymentNotificationDto) {

@@ -50,7 +50,7 @@ async function bootstrap() {
           bearerFormat: 'JWT',
           in: 'header',
         },
-        'msp',
+        'bcb',
       )
       .addCookieAuth('sid', { type: 'apiKey', in: 'cookie' }, 'web-session')
       .build();
