@@ -24,17 +24,19 @@ export class FtpService {
         secureOptions: { rejectUnauthorized: false },
       });
       this.logger.log('Connected to FTP server successfully');
+      return true;
     } catch (error) {
       this.logger.error('Failed to connect to FTP server:', error);
+      return false;
     }
   }
 
   async connectSwitch(value: string) {
     try {
       if (value === 'true') {
-        await this.connectToFtp();
+        const connected = await this.connectToFtp();
         return {
-          statusConnect: true,
+          statusConnect: connected,
         };
       } else {
         await this.onDestroy();
@@ -154,7 +156,6 @@ export class FtpService {
       this.onDestroy();
     }
   }
-
 
   async removeFile(data: string[]) {
     try {
