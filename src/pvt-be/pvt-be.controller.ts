@@ -126,4 +126,50 @@ export class PvtBeController {
     );
     return data;
   }
+
+  @MessagePattern('pvtBe.retFunRetirementFunds')
+  async retFunRetirementFunds(body: { authorization: string }) {
+    const { authorization } = body;
+    const url = `${PvtEnvs.PvtBeApiServer}/ret_fun`;
+    const { data } = await firstValueFrom(
+      this.httpService.get(url, { headers: { authorization } }),
+    );
+    return data;
+  }
+
+  @MessagePattern('pvtBe.retFunLiquidationPrint')
+  async retFunLiquidationPrint(body: {
+    authorization: string;
+    retirementFundId: string;
+  }) {
+    const { authorization, retirementFundId } = body;
+    const url = `${PvtEnvs.PvtBeApiServer}/ret_fun/${retirementFundId}/print/liquidation`;
+    const { data } = await firstValueFrom(
+      this.httpService.get(url, { headers: { authorization } }),
+    );
+    return data;
+  }
+
+  @MessagePattern('pvtBe.quotaAidMortuaries')
+  async quotaAidMortuaries(body: { authorization: string }) {
+    const { authorization } = body;
+    const url = `${PvtEnvs.PvtBeApiServer}/quota_aid`;
+    const { data } = await firstValueFrom(
+      this.httpService.get(url, { headers: { authorization } }),
+    );
+    return data;
+  }
+
+  @MessagePattern('pvtBe.quotaAidLiquidationPrint')
+  async quotaAidLiquidationPrint(body: {
+    authorization: string;
+    quotaAidId: string;
+  }) {
+    const { authorization, quotaAidId } = body;
+    const url = `${PvtEnvs.PvtBeApiServer}/quota_aid/${quotaAidId}/print/liquidation`;
+    const { data } = await firstValueFrom(
+      this.httpService.get(url, { headers: { authorization } }),
+    );
+    return data;
+  }
 }
