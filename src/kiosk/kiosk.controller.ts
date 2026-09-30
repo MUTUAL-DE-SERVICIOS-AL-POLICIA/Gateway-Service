@@ -8,9 +8,13 @@ import {
   UploadedFiles,
   UseInterceptors,
   UseGuards,
+  Query,
+  HttpException,
+  Res,
 } from '@nestjs/common';
 import { ApiBody, ApiConsumes, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { firstValueFrom } from 'rxjs';
+import { Response } from 'express';
 import { PvtEnvs } from 'src/config';
 import { HttpService } from '@nestjs/axios';
 import { HashPvtGuard } from 'src/auth/guards/hashpvt.guard';
@@ -157,8 +161,13 @@ export class KioskController {
   async getAffiliateLoans(@Param('identityCard') identityCard: string) {
     let ecoComResponse: any;
     let loansResponse: any;
+    let retFunResponse: any;
+    let quotaAidResponse: any;
     const ecoComUrl = `${PvtEnvs.PvtBeApiServer}/kioskoComplemento?ci=${identityCard}`;
     const loansUrl = `${PvtEnvs.PvtBackendApiServer}/kiosk/verify_loans/${identityCard}`;
+    const retFunUrl = `${PvtEnvs.PvtBeApiServer}/kiosko/ret_fun?ci=${identityCard}`;
+    const quotaAidUrl = `${PvtEnvs.PvtBeApiServer}/kiosko/quota_aid?ci=${identityCard}`;
+    const pvtAuth = `Bearer ${PvtEnvs.PvtHashSecret}`;
     try {
       const { data } = await firstValueFrom(this.httpService.get(ecoComUrl));
       ecoComResponse = data;
@@ -179,6 +188,36 @@ export class KioskController {
         message: error || 'Error al obtener préstamos',
       };
     }
+
+    try {
+      const { data } = await firstValueFrom(
+        this.httpService.get(retFunUrl, { headers: { authorization: pvtAuth } }),
+      );
+      retFunResponse = data;
+    } catch (error) {
+      retFunResponse = {
+        error: true,
+        data: [],
+        message: error || 'Error al obtener fondo de retiro',
+      };
+    }
+
+    try {
+      const { data } = await firstValueFrom(
+        this.httpService.get(quotaAidUrl, { headers: { authorization: pvtAuth } }),
+      );
+      quotaAidResponse = data;
+    } catch (error) {
+      quotaAidResponse = {
+        error: true,
+        data: [],
+        message: error || 'Error al obtener cuota y auxilio mortuorio',
+      };
+    }
+
+    const hasRetFun = Array.isArray(retFunResponse?.data) && retFunResponse.data.length > 0;
+    const hasQuotaAid = Array.isArray(quotaAidResponse?.data) && quotaAidResponse.data.length > 0;
+
     return {
       ecoCom: {
         canShow: !ecoComResponse.error,
@@ -187,6 +226,123 @@ export class KioskController {
       },
       loans: { canShow: loansResponse.hasLoan },
       contributions: { canShow: true },
+      retirementBenefits: { canShow: hasRetFun || hasQuotaAid },
     };
+  }
+
+  @UseGuards(HashPvtGuard)
+  @Get('ret_fun')
+  @ApiResponse({
+    status: 200,
+    description: 'Obtener trámites de fondo de retiro de un afiliado por CI',
+  })
+  async GetRetFunList(
+    @Headers('authorization') authorization: string,
+    @Query('ci') ci: string,
+  ) {
+    const url = `${PvtEnvs.PvtBeApiServer}/kiosko/ret_fun?ci=${ci}`;
+    try {
+      const { data } = await firstValueFrom(
+        this.httpService.get(url, { headers: { authorization } }),
+      );
+      return data;
+    } catch (error: any) {
+      throw new HttpException(
+        error?.response?.data?.message ?? 'Error al obtener fondo de retiro',
+        error?.response?.status ?? 500,
+      );
+    }
+  }
+
+  @UseGuards(HashPvtGuard)
+  @Get('quotaAid')
+  @ApiResponse({
+    status: 200,
+    description: 'Obtener trámites de cuota y auxilio mortuorio de un afiliado por CI',
+  })
+  async GetQuotaAidList(
+    @Headers('authorization') authorization: string,
+    @Query('ci') ci: string,
+  ) {
+    const url = `${PvtEnvs.PvtBeApiServer}/kiosko/quota_aid?ci=${ci}`;
+    try {
+      const { data } = await firstValueFrom(
+        this.httpService.get(url, { headers: { authorization } }),
+      );
+      return data;
+    } catch (error: any) {
+      throw new HttpException(
+        error?.response?.data?.message ?? 'Error al obtener cuota y auxilio mortuorio',
+        error?.response?.status ?? 500,
+      );
+    }
+  }
+
+  @UseGuards(HashPvtGuard)
+  @Get('ret_fun/:retirementFundId/print/liquidation')
+  @ApiResponse({
+    status: 200,
+    description: 'Obtener la liquidación de pago de un trámite de fondo de retiro',
+  })
+  async PrintRetFunLiquidation(
+    @Headers('authorization') authorization: string,
+    @Param('retirementFundId') retirementFundId: string,
+    @Res() res: Response,
+  ) {
+    const url = `${PvtEnvs.PvtBeApiServer}/kiosko/ret_fun/${retirementFundId}/print/liquidation`;
+    try {
+      const { data } = await firstValueFrom(
+        this.httpService.get(url, {
+          headers: { authorization },
+          responseType: 'arraybuffer',
+        }),
+      );
+      res.set({
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `inline; filename="ret_fun_${retirementFundId}.pdf"`,
+        'Content-Length': data.length,
+      });
+      res.send(data);
+      return;
+    } catch (error: any) {
+      throw new HttpException(
+        error?.response?.data?.message ?? 'Error al obtener la liquidación',
+        error?.response?.status ?? 500,
+      );
+    }
+  }
+
+  @UseGuards(HashPvtGuard)
+  @Get('quotaAid/:quotaAidId/print/liquidation')
+  @ApiResponse({
+    status: 200,
+    description: 'Obtener la liquidación de pago de un trámite de cuota y auxilio mortuorio',
+  })
+  async PrintQuotaAidLiquidation(
+    @Headers('authorization') authorization: string,
+    @Param('quotaAidId') quotaAidId: string,
+    @Res() res: Response,
+  ) {
+    const url = `${PvtEnvs.PvtBeApiServer}/kiosko/quota_aid/${quotaAidId}/print/liquidation`;
+    try {
+      const { data } = await firstValueFrom(
+        this.httpService.get(url, {
+          headers: { authorization },
+          responseType: 'arraybuffer',
+        }),
+      );
+      res.set({
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `inline; filename="quota_aid_${quotaAidId}.pdf"`,
+        'Content-Length': data.length,
+      });
+      res.send(data);
+      return;
+    } catch (error: any) {
+      throw new HttpException(
+        error?.response?.data?.message ?? 'Error al obtener la liquidación',
+        error?.response?.status ?? 500,
+      );
+    }
   }
 }
