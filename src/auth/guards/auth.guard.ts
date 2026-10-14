@@ -5,13 +5,12 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { Request } from 'express';
 import { Reflector } from '@nestjs/core';
+import { Request } from 'express';
 import { NatsService } from 'src/common';
 
 @Injectable()
 export class AuthGuard implements CanActivate {
-
   constructor(
     private readonly nats: NatsService,
     private readonly reflector: Reflector,
@@ -24,28 +23,25 @@ export class AuthGuard implements CanActivate {
     ]);
     if (isPublic) return true;
 
-    const request = context.switchToHttp().getRequest();
-    const apiKey = request.headers['x-api-key'] as string | undefined;
-    const token = this.extractTokenFromHeader(request);
-
-    if (!apiKey && !token) {
+    const request = context.switchToHttp().getRequest<Request & { user?: unknown }>();
+    const apiKey = request.headers['x-api-key'];
+    const token = this.extractToken(request);
+    if (typeof apiKey !== 'string' && !token) {
       throw new NotFoundException({ error: true, message: 'Token no encontrado' });
     }
 
     try {
-      if (apiKey) {
+      if (typeof apiKey === 'string') {
         return await this.nats.firstValue('auth.verify.apiKey', apiKey);
       }
-
-      const { username, name } = await this.nats.firstValue('auth.verify.token', token!);
-      request.user = { username, name };
+      request.user = await this.nats.firstValue('auth.verify.token', token);
       return true;
     } catch {
       throw new UnauthorizedException({ error: true, message: 'Sin autorización' });
     }
   }
 
-  private extractTokenFromHeader(request: Request): string | undefined {
+  private extractToken(request: Request): string | undefined {
     const [type, token] = request.headers.authorization?.split(' ') ?? [];
     return type === 'Bearer' ? token : undefined;
   }
