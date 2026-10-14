@@ -17,6 +17,7 @@ import { RecordsService } from 'src/common';
 import { CommonController } from 'src/common/common.controller';
 import { AffiliatesController } from './affiliates.controller';
 import { PersonsController } from './persons.controller';
+import { ReportsController } from './reports.controller';
 
 jest.mock('src/config', () => ({ NATS_SERVICE: 'NATS_SERVICE' }));
 jest.mock('src/common', () => ({
@@ -39,6 +40,14 @@ type RouteExpectation = readonly [
 ];
 
 const routes: readonly RouteExpectation[] = [
+  [
+    ReportsController,
+    'reportAllSales',
+    RequestMethod.GET,
+    'registerFingerprints',
+    'reports',
+    'download',
+  ],
   [
     PersonsController,
     'showListFingerprint',
@@ -203,28 +212,13 @@ const routes: readonly RouteExpectation[] = [
     'affiliates.documents',
     'collate',
   ],
-  [
-    AffiliatesController,
-    'documentsAnalysis',
-    RequestMethod.POST,
-    'documents/analysis',
-    'affiliates.documents',
-    'import',
-  ],
-  [
-    AffiliatesController,
-    'documentsImports',
-    RequestMethod.POST,
-    'documents/imports',
-    'affiliates.documents',
-    'import',
-  ],
 ];
 
 describe('Beneficiary web authorization metadata', () => {
   it.each([
     [PersonsController, routes.filter(([controller]) => controller === PersonsController)],
     [AffiliatesController, routes.filter(([controller]) => controller === AffiliatesController)],
+    [ReportsController, routes.filter(([controller]) => controller === ReportsController)],
   ])('%s exposes exactly the approved HTTP handlers', (controller, expectedRoutes) => {
     const actualHandlers = Object.getOwnPropertyNames(controller.prototype)
       .filter((method) =>
@@ -241,7 +235,12 @@ describe('Beneficiary web authorization metadata', () => {
       const handler = (controller as any).prototype[method];
       expect(Reflect.getMetadata(METHOD_METADATA, handler)).toBe(verb);
       expect(Reflect.getMetadata(PATH_METADATA, handler)).toBe(path);
-      const baseResource = controller === PersonsController ? 'persons' : 'affiliates';
+      const baseResource =
+        controller === PersonsController
+          ? 'persons'
+          : controller === AffiliatesController
+            ? 'affiliates'
+            : 'reports';
       const subresource =
         resource === baseResource ? undefined : resource.slice(baseResource.length + 1);
       expect(Reflect.getMetadata(WEB_CONTROLLER_METADATA, controller)).toEqual({
@@ -254,7 +253,7 @@ describe('Beneficiary web authorization metadata', () => {
     },
   );
 
-  it.each([PersonsController, AffiliatesController])(
+  it.each([PersonsController, AffiliatesController, ReportsController])(
     '%s uses only the web guard and preserves RecordsService',
     (controller) => {
       expect(Reflect.getMetadata(GUARDS_METADATA, controller)).toEqual([WebAuthorizationGuard]);
