@@ -4,7 +4,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiResponse, ApiTags } from '@nestjs/swagger';
 
 import { NatsService, ImportCsvService } from 'src/common';
-import { WebController, WebSessionOnly } from 'src/auth/decorators/web-authorization.decorators';
+import { WebController, WebPermission } from 'src/auth/decorators/web-authorization.decorators';
 
 @ApiTags('collections')
 @WebController('collections', 'bank_statements')
@@ -16,7 +16,7 @@ export class BankStatementsController {
   ) {}
 
   @Get('findAll')
-  @WebSessionOnly()
+  @WebPermission('read')
   @ApiResponse({
     status: 200,
     description: 'Obtener todas las transacciones',
@@ -26,7 +26,7 @@ export class BankStatementsController {
   }
 
   @Post('import')
-  @WebSessionOnly()
+  @WebPermission('write')
   @UseInterceptors(FileInterceptor('file'))
   @ApiResponse({
     status: 200,

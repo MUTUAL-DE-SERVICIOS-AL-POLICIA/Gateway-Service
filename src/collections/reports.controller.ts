@@ -2,7 +2,7 @@ import { Controller, Get, Query, Req, Res, UseInterceptors } from '@nestjs/commo
 import { ApiOperation, ApiProduces, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { stringify } from 'csv-stringify/sync';
 import { Request, Response } from 'express';
-import { WebController, WebSessionOnly } from 'src/auth/decorators/web-authorization.decorators';
+import { WebController, WebPermission } from 'src/auth/decorators/web-authorization.decorators';
 import { NatsService, PdfBufferService, RecordsService } from 'src/common';
 import { reportSales } from 'src/common/templates';
 
@@ -17,7 +17,7 @@ export class CollectionsReportsController {
   ) {}
 
   @Get('allSales')
-  @WebSessionOnly()
+  @WebPermission('download')
   @ApiOperation({ summary: 'Generar lista de ventas en PDF o CSV para recaudaciones' })
   @ApiQuery({ name: 'dateFrom', required: true, example: '2026-07-01' })
   @ApiQuery({ name: 'dateTo', required: true, example: '2026-07-13' })
