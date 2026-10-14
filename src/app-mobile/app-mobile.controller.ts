@@ -420,4 +420,85 @@ export class AppMobileController {
       },
     );
   }
+
+  // --- Fondo de retiro y cuota/auxilio mortuorio ---
+  // Encadena al App-Mobile-Service (NATS appMobile.retFun*/quotaAid*), que a su vez
+  // llama al API de PVT-BE. Listas en JSON; impresiones en PDF (base64 -> binario).
+  @Get('retFunRetirementFunds/:affiliateId')
+  @ApiResponse({ status: 200, description: 'Obtener fondo de retiro del afiliado' })
+  async retFunRetirementFunds(
+    @Headers('authorization') authorization: string,
+    @Param('affiliateId') affiliateId: string,
+  ) {
+    return await this.nats.firstValue('appMobile.retFunRetirementFunds', {
+      authorization,
+      affiliateId,
+    });
+  }
+
+  // El microservicio devuelve { name, binaryPdf }; aquí se responde el PDF binario.
+  @Get('retFunLiquidationPrint/:retirementFundId')
+  @ApiResponse({ status: 200, description: 'Imprimir liquidación de fondo de retiro' })
+  async retFunLiquidationPrint(
+    @Headers('authorization') authorization: string,
+    @Param('retirementFundId') retirementFundId: string,
+    @Res() res: Response,
+  ) {
+    const response = await this.nats.firstValue('appMobile.retFunLiquidationPrint', {
+      authorization,
+      retirementFundId,
+    });
+
+    if (!response.serviceStatus) {
+      return response;
+    }
+
+    const pdfBuffer = Buffer.from(response.binaryPdf, 'base64');
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="${response.name}"`,
+      'Content-Length': pdfBuffer.length,
+    });
+    res.send(pdfBuffer);
+    return;
+  }
+
+  @Get('quotaAidMortuaries/:affiliateId')
+  @ApiResponse({ status: 200, description: 'Obtener cuota y auxilio mortuorio del afiliado' })
+  async quotaAidMortuaries(
+    @Headers('authorization') authorization: string,
+    @Param('affiliateId') affiliateId: string,
+  ) {
+    return await this.nats.firstValue('appMobile.quotaAidMortuaries', {
+      authorization,
+      affiliateId,
+    });
+  }
+
+  // El microservicio devuelve { name, binaryPdf }; aquí se responde el PDF binario.
+  @Get('quotaAidLiquidationPrint/:quotaAidId')
+  @ApiResponse({ status: 200, description: 'Imprimir liquidación de cuota y auxilio mortuorio' })
+  async quotaAidLiquidationPrint(
+    @Headers('authorization') authorization: string,
+    @Param('quotaAidId') quotaAidId: string,
+    @Res() res: Response,
+  ) {
+    const response = await this.nats.firstValue('appMobile.quotaAidLiquidationPrint', {
+      authorization,
+      quotaAidId,
+    });
+
+    if (!response.serviceStatus) {
+      return response;
+    }
+
+    const pdfBuffer = Buffer.from(response.binaryPdf, 'base64');
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="${response.name}"`,
+      'Content-Length': pdfBuffer.length,
+    });
+    res.send(pdfBuffer);
+    return;
+  }
 }
