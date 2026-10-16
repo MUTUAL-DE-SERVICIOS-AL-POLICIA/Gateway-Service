@@ -8,9 +8,13 @@ import {
   UploadedFiles,
   UseInterceptors,
   UseGuards,
+  Query,
+  HttpException,
+  Res,
 } from '@nestjs/common';
 import { ApiBody, ApiConsumes, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { firstValueFrom } from 'rxjs';
+import { Response } from 'express';
 import { PvtEnvs } from 'src/config';
 import { HttpService } from '@nestjs/axios';
 import { HashPvtGuard } from 'src/auth/guards/hashpvt.guard';
@@ -179,6 +183,24 @@ export class KioskController {
         message: error.response?.data?.message || 'Error al obtener préstamos',
       };
     }
+
+    // El kiosko no maneja token: el afiliado se resuelve por ci. Se usa solo para
+    // decidir si el ítem aparece en el menú, así que un fallo devuelve lista vacía.
+    const retFunResponse = await this.probeKioskList(
+      'kiosk.retFunRetirementFunds',
+      identityCard,
+      'Error al obtener fondo de retiro',
+    );
+
+    const quotaAidResponse = await this.probeKioskList(
+      'kiosk.quotaAidMortuaries',
+      identityCard,
+      'Error al obtener cuota y auxilio mortuorio',
+    );
+
+    const hasRetFun = Array.isArray(retFunResponse?.data) && retFunResponse.data.length > 0;
+    const hasQuotaAid = Array.isArray(quotaAidResponse?.data) && quotaAidResponse.data.length > 0;
+
     return {
       ecoCom: {
         canShow: !ecoComResponse.error,
@@ -187,6 +209,151 @@ export class KioskController {
       },
       loans: { canShow: loansResponse.hasLoan },
       contributions: { canShow: true },
+      retirementFundQuotaAid: { canShow: hasRetFun || hasQuotaAid },
     };
+  }
+
+  // --- Fondo de retiro y cuota/auxilio mortuorio para el kiosko (afiliado por ci) ---
+  // Cada endpoint encadena: Gateway -> NATS (Kiosk-Service) -> NATS (pvtBe) -> API de PVT-BE.
+  @UseGuards(HashPvtGuard)
+  @Get('ret_fun')
+  @ApiResponse({
+    status: 200,
+    description: 'Obtener trámites de fondo de retiro de un afiliado por CI',
+  })
+  async GetRetFunList(
+    @Headers('authorization') authorization: string,
+    @Query('ci') ci: string,
+  ) {
+    return this.callRetFunQuotaAid(
+      'kiosk.retFunRetirementFunds',
+      { authorization, ci },
+      'Error al obtener fondo de retiro',
+    );
+  }
+
+  @UseGuards(HashPvtGuard)
+  @Get('quotaAid')
+  @ApiResponse({
+    status: 200,
+    description: 'Obtener trámites de cuota y auxilio mortuorio de un afiliado por CI',
+  })
+  async GetQuotaAidList(
+    @Headers('authorization') authorization: string,
+    @Query('ci') ci: string,
+  ) {
+    return this.callRetFunQuotaAid(
+      'kiosk.quotaAidMortuaries',
+      { authorization, ci },
+      'Error al obtener cuota y auxilio mortuorio',
+    );
+  }
+
+  // El microservicio devuelve el PDF en base64 (`binaryPdf`); aquí se decodifica y se responde el binario.
+  @UseGuards(HashPvtGuard)
+  @Get('ret_fun/:retirementFundId/print/liquidation')
+  @ApiResponse({
+    status: 200,
+    description: 'Obtener la liquidación de pago de un trámite de fondo de retiro',
+  })
+  async PrintRetFunLiquidation(
+    @Headers('authorization') authorization: string,
+    @Param('retirementFundId') retirementFundId: string,
+    @Res() res: Response,
+  ) {
+    const response = await this.callRetFunQuotaAid(
+      'kiosk.retFunLiquidationPrint',
+      { authorization, retirementFundId },
+      'Error al obtener la liquidación',
+    );
+    if (!response?.binaryPdf) {
+      throw new HttpException('Error al obtener la liquidación', 500);
+    }
+    const pdfBuffer = Buffer.from(response.binaryPdf, 'base64');
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `inline; filename="ret_fun_${retirementFundId}.pdf"`,
+      'Content-Length': pdfBuffer.length,
+    });
+    res.send(pdfBuffer);
+    return;
+  }
+
+  @UseGuards(HashPvtGuard)
+  @Get('quotaAid/:quotaAidId/print/liquidation')
+  @ApiResponse({
+    status: 200,
+    description: 'Obtener la liquidación de pago de un trámite de cuota y auxilio mortuorio',
+  })
+  async PrintQuotaAidLiquidation(
+    @Headers('authorization') authorization: string,
+    @Param('quotaAidId') quotaAidId: string,
+    @Res() res: Response,
+  ) {
+    const response = await this.callRetFunQuotaAid(
+      'kiosk.quotaAidLiquidationPrint',
+      { authorization, quotaAidId },
+      'Error al obtener la liquidación',
+    );
+    if (!response?.binaryPdf) {
+      throw new HttpException('Error al obtener la liquidación', 500);
+    }
+    const pdfBuffer = Buffer.from(response.binaryPdf, 'base64');
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `inline; filename="quota_aid_${quotaAidId}.pdf"`,
+      'Content-Length': pdfBuffer.length,
+    });
+    res.send(pdfBuffer);
+    return;
+  }
+
+  // Ejecuta un patrón del Kiosk-Service y traduce sus errores a HttpException.
+  // El Kiosk-Service responde { error, message, data } (o lanza RpcException).
+  private async callRetFunQuotaAid(
+    pattern: string,
+    payload: Record<string, any>,
+    fallbackMessage: string,
+  ) {
+    let response: any;
+    try {
+      response = await this.nats.firstValue(pattern, payload);
+    } catch (error: any) {
+      const status =
+        typeof error?.getStatus === 'function' ? error.getStatus() : 502;
+      const body =
+        typeof error?.getResponse === 'function' ? error.getResponse() : null;
+      const message =
+        (typeof body === 'string' ? body : body?.message) ?? fallbackMessage;
+      throw new HttpException(message, Number.isInteger(status) ? status : 502);
+    }
+    if (response?.error || response?.serviceStatus === false) {
+      throw new HttpException(
+        response?.message ?? fallbackMessage,
+        Number.isInteger(response?.statusCode) ? response.statusCode : 502,
+      );
+    }
+    return response;
+  }
+
+  // Sondeo para el menú: usa el HASH del kiosko como autorización y, ante error,
+  // devuelve una lista vacía en vez de romper el listado.
+  private async probeKioskList(
+    pattern: string,
+    ci: string,
+    fallbackMessage: string,
+  ) {
+    try {
+      return await this.nats.firstValue(pattern, {
+        authorization: `Bearer ${PvtEnvs.PvtHashSecret}`,
+        ci,
+      });
+    } catch (error: any) {
+      const body =
+        typeof error?.getResponse === 'function' ? error.getResponse() : null;
+      const message =
+        (typeof body === 'string' ? body : body?.message) ?? fallbackMessage;
+      return { error: true, message, data: [] };
+    }
   }
 }
