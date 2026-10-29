@@ -4,16 +4,13 @@ import {
   Get,
   Param,
   ParseIntPipe,
-  ParseUUIDPipe,
   Post,
   Query,
   Req,
   Res,
-  UseGuards,
-  UseInterceptors
+  UseInterceptors,
 } from '@nestjs/common';
 import {
-  ApiBearerAuth,
   ApiBody,
   ApiOperation,
   ApiParam,
@@ -24,31 +21,22 @@ import {
 } from '@nestjs/swagger';
 import { stringify } from 'csv-stringify/sync';
 import { Request, Response } from 'express';
-import { AuthGuard } from 'src/auth/guards';
 import { NatsService, PdfBufferService, RecordsService } from 'src/common';
 import { reciboFormal, reportSales } from 'src/common/templates';
+import { WebController, WebPermission } from 'src/auth/decorators/web-authorization.decorators';
 
 @ApiTags('sales')
-@ApiBearerAuth('msp')
-@UseGuards(AuthGuard)
+@WebController('sales', 'sales')
 @UseInterceptors(RecordsService)
 @Controller('sales')
 export class SalesController {
   constructor(
     private readonly nats: NatsService,
     private readonly pdfBuffer: PdfBufferService,
-  ) { }
-
-  @Get('search/:value/:type')
-  @ApiResponse({
-    status: 200,
-    description: 'Buscar un afiliado',
-  })
-  async searchPerson(@Param('value') value: string, @Param('type') type: string) {
-    return this.nats.send('sales.searchPerson', { value, type });
-  }
+  ) {}
 
   @Get('groups/:groupId/products')
+  @WebPermission('read')
   @ApiResponse({
     status: 200,
     description: 'Obtener los productos de un grupo de ventas',
@@ -58,6 +46,7 @@ export class SalesController {
   }
 
   @Get('groups/:groupIds')
+  @WebPermission('read')
   @ApiResponse({
     status: 200,
     description: 'Obtener los productos de diferentes grupos de ventas',
@@ -66,16 +55,8 @@ export class SalesController {
     return this.nats.send('sales.groupsCheck', { groupIds });
   }
 
-  @Get(':personUuid/forCreatingSale')
-  @ApiResponse({
-    status: 200,
-    description: 'Muestra una persona con sus relaciones y características adicionales',
-  })
-  async findPerson(@Param('personUuid', new ParseUUIDPipe()) personUuid: string) {
-    return this.nats.send('sales.forCreatingSale', { personUuid });
-  }
-
   @Post('generateQr')
+  @WebPermission('write', 'qr')
   @ApiOperation({
     summary: 'Crear Qr en base a la Venta',
     description: `Este endpoint crea el Qr para las ventas`,
@@ -107,6 +88,7 @@ export class SalesController {
   }
 
   @Post('createSale')
+  @WebPermission('write')
   @ApiOperation({
     summary: 'Crear Venta',
     description: `Este endpoint crea ventas, los productos de la venta y el voucher`,
@@ -138,6 +120,7 @@ export class SalesController {
   }
 
   @Get(':personId/sales')
+  @WebPermission('read')
   @ApiOperation({
     summary: 'Obtener ventas de una persona',
     description: `Este endpoint obtiene las ventas de una persona`,
@@ -156,6 +139,7 @@ export class SalesController {
   }
 
   @Get(':personId/qrPending')
+  @WebPermission('read', 'qr')
   @ApiOperation({
     summary: 'Obtener Qr pendientes de una persona',
     description: `Este endpoint obtiene los Qr pendientes de una persona`,
@@ -173,8 +157,8 @@ export class SalesController {
     return await this.nats.firstValue('sales.personPendingQr', { personId });
   }
 
-
   @Get('voucherPdf/:saleId')
+  @WebPermission('download', 'vouchers')
   @ApiOperation({ summary: 'Generar recibo oficial de venta en PDF' })
   @ApiParam({ name: 'saleId', type: Number, example: 1 })
   @ApiProduces('application/pdf')
@@ -186,11 +170,7 @@ export class SalesController {
       format: 'binary',
     },
   })
-  async voucherPdf(
-    @Param('saleId', ParseIntPipe) saleId: number,
-    @Res() res: Response,
-  ) {
-
+  async voucherPdf(@Param('saleId', ParseIntPipe) saleId: number, @Res() res: Response) {
     const dataSale = await this.nats.firstValue('sales.voucherPdf', {
       saleId,
     });
@@ -199,7 +179,7 @@ export class SalesController {
     const buffer = await this.pdfBuffer.generatePdfBuffer(documentDefinition);
 
     res.set({
-      'Content-Type': "application/pdf",
+      'Content-Type': 'application/pdf',
       'Content-Disposition': `inline; filename="recibo de venta"`,
       'Content-Length': buffer.length,
     });
@@ -208,6 +188,7 @@ export class SalesController {
   }
 
   @Get('reports/allSales')
+  @WebPermission('download', 'reports')
   @ApiOperation({ summary: 'Generar lista de ventas en PDF o Excel' })
   @ApiQuery({
     name: 'dateFrom',
@@ -248,7 +229,6 @@ export class SalesController {
     @Req() req: Request & { user?: { username?: string; name?: string } },
     @Res() res: Response,
   ) {
-
     const filters = {
       dateFrom,
       dateTo,
@@ -256,26 +236,22 @@ export class SalesController {
       user: req.user?.username,
     };
 
-    const { error, message, data } =
-      await this.nats.firstValue('sales.report.allSales', filters);
+    const { error, message, data } = await this.nats.firstValue('sales.report.allSales', filters);
 
     if (error) {
       return res.status(500).json({ message });
     }
 
-    const nameFile = 'reporte-ventas'
+    const nameFile = 'reporte-ventas';
 
     if (format === 'csv') {
       const csv = stringify(data.reportData, { header: true });
       res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-      res.setHeader(
-        'Content-Disposition',
-        `attachment; filename="${nameFile}.csv"`,
-      );
+      res.setHeader('Content-Disposition', `attachment; filename="${nameFile}.csv"`);
       return res.send(csv);
     }
 
-    if(format === 'pdf') {
+    if (format === 'pdf') {
       const documentDefinition = await reportSales(data);
       const buffer = await this.pdfBuffer.generatePdfBuffer(documentDefinition);
       res.set({
@@ -288,6 +264,7 @@ export class SalesController {
   }
 
   @Get(':qrId/qrImage')
+  @WebPermission('read', 'qr')
   @ApiResponse({
     status: 200,
     description: 'Obtener la imagen del qr',
@@ -300,10 +277,11 @@ export class SalesController {
       data: {
         qrImage: response,
       },
-    }
+    };
   }
 
   @Get('records/:personId')
+  @WebPermission('read', 'records')
   @ApiResponse({
     status: 200,
     description: 'Obtener los registros de una persona por su ID',
@@ -313,22 +291,22 @@ export class SalesController {
   }
 
   @Get('forGenerateReport')
+  @WebPermission('read', 'reports')
   @ApiResponse({
     status: 200,
     description: 'Obtiene los datos necesario para generar diferentes reporte',
   })
   async forGenerateReport() {
-    return this.nats.send('sales.forGenerateReport', { });
+    return this.nats.send('sales.forGenerateReport', {});
   }
 
   @Get('cancel/:saleId')
+  @WebPermission('update')
   @ApiResponse({
     status: 200,
     description: 'Cancela una venta',
   })
   async cancelSale(@Param('saleId') saleId: string) {
-    
     return this.nats.send('sales.cancelSale', { saleId });
   }
-
 }

@@ -1,23 +1,21 @@
 import {
-    Body,
-    Controller,
-    Get,
-    Param,
-    ParseIntPipe,
-    ParseUUIDPipe,
-    Post,
-    Query,
-    UseGuards,
-    UseInterceptors,
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseIntPipe,
+  ParseUUIDPipe,
+  Post,
+  Query,
+  UseInterceptors,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { AuthGuard } from 'src/auth/guards/auth.guard';
+import { ApiResponse, ApiTags } from '@nestjs/swagger';
+import { WebController, WebPermission } from 'src/auth/decorators/web-authorization.decorators';
 import { FtpService, NatsService, RecordsService } from 'src/common';
 import { FilteredPaginationDto } from './dto';
 
-@ApiBearerAuth('msp')
 @ApiTags('beneficiaries')
-@UseGuards(AuthGuard)
+@WebController('beneficiary', 'persons')
 @UseInterceptors(RecordsService)
 @Controller('beneficiaries/persons')
 export class PersonsController {
@@ -27,6 +25,7 @@ export class PersonsController {
   ) {}
 
   @Get('showListFingerprint')
+  @WebPermission('read', 'fingerprints')
   @ApiResponse({
     status: 200,
     description: 'Mostrar el listado de huellas digitales',
@@ -36,18 +35,21 @@ export class PersonsController {
   }
 
   @Get()
+  @WebPermission('read')
   @ApiResponse({ status: 200, description: 'Mostrar todas las personas' })
   findAllPersons(@Query() filterDto: FilteredPaginationDto) {
     return this.nats.send('person.findAll', filterDto);
   }
 
   @Get(':term')
+  @WebPermission('read')
   @ApiResponse({ status: 200, description: 'Mostrar una persona' })
   async findOnePersons(@Param('term') term: string) {
     return this.nats.send('person.findOne', { term, field: 'id' });
   }
 
   @Get(':uuid/details')
+  @WebPermission('read')
   @ApiResponse({
     status: 200,
     description: 'Muestra una persona con sus relaciones y características adicionales',
@@ -56,6 +58,7 @@ export class PersonsController {
     return this.nats.send('person.findOneWithFeatures', { uuid });
   }
   @Get(':personId/beneficiaries')
+  @WebPermission('read')
   @ApiResponse({
     status: 200,
     description: 'Mostrar los beneficiarios de una persona',
@@ -69,6 +72,7 @@ export class PersonsController {
   }
 
   @Get(':personId/affiliates')
+  @WebPermission('read', 'affiliates')
   @ApiResponse({
     status: 200,
     description: 'Mostrar los afiliados relacionados con una persona',
@@ -78,6 +82,7 @@ export class PersonsController {
   }
 
   @Post(':personId/createPersonFingerprint')
+  @WebPermission('write', 'fingerprints')
   @ApiResponse({
     status: 200,
     description: 'Crear una huella digital de una persona',
@@ -116,6 +121,7 @@ export class PersonsController {
   }
 
   @Get('showPersonFingerprint/:id')
+  @WebPermission('read', 'fingerprints')
   @ApiResponse({
     status: 200,
     description: 'Mostrar el listado de huellas digitales de una persona',
@@ -125,6 +131,7 @@ export class PersonsController {
   }
 
   @Get('records/:personId')
+  @WebPermission('read', 'records')
   @ApiResponse({
     status: 200,
     description: 'Obtener los registros de una persona por su ID',
@@ -134,6 +141,7 @@ export class PersonsController {
   }
 
   @Get('search/:value/:type')
+  @WebPermission('read')
   @ApiResponse({
     status: 200,
     description: 'Buscar un afiliado',
