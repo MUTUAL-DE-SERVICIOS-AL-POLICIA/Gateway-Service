@@ -35,15 +35,22 @@ export class ReportsController {
     required: true,
     example: '2026-07-13',
   })
+  @ApiQuery({
+    name: 'allRecords',
+    required: false,
+    example: true,
+  })
   async reportAllSales(
     @Query('dateFrom') dateFrom: string,
     @Query('dateTo') dateTo: string,
+    @Query('allRecords') allRecords: boolean,
     @Req() req: Request & { user?: { username?: string; name?: string } },
     @Res() res: Response,
   ) {
     const filters = {
       dateFrom,
       dateTo,
+      allRecords,
       user: req.user?.username,
     };
 
