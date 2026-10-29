@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AffiliatesController } from './affiliates.controller';
 import { PersonsController } from './persons.controller';
-import { AuthGuard, WebAuthorizationGuard } from 'src/auth/guards';
+import { PvtImportApiKeyGuard, WebAuthorizationGuard } from 'src/auth/guards';
 import { PvtDocumentImportController } from './pvt-document-import.controller';
 import { ReportsController } from './reports.controller';
 
@@ -12,7 +12,7 @@ import { ReportsController } from './reports.controller';
     PvtDocumentImportController,
     ReportsController,
   ],
-  providers: [WebAuthorizationGuard, AuthGuard],
+  providers: [WebAuthorizationGuard, PvtImportApiKeyGuard],
   imports: [],
 })
 export class BeneficiariesModule {}

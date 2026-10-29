@@ -1,6 +1,6 @@
 import { Body, Controller, Post, UseGuards, UseInterceptors } from '@nestjs/common';
 import { ApiHeader, ApiTags } from '@nestjs/swagger';
-import { AuthGuard } from 'src/auth/guards';
+import { PvtImportApiKeyGuard } from 'src/auth/guards';
 import { NatsService, RecordsService } from 'src/common';
 
 interface LegacyAnalysisBody {
@@ -11,7 +11,7 @@ interface LegacyAnalysisBody {
 
 @ApiTags('beneficiaries-pvt')
 @ApiHeader({ name: 'x-api-key', required: true })
-@UseGuards(AuthGuard)
+@UseGuards(PvtImportApiKeyGuard)
 @UseInterceptors(RecordsService)
 @Controller('beneficiaries/affiliates/documents')
 export class PvtDocumentImportController {
