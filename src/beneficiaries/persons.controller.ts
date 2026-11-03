@@ -1,4 +1,5 @@
 import {
+    BadRequestException,
     Body,
     Controller,
     Get,
@@ -8,13 +9,18 @@ import {
     Post,
     Query,
     UseGuards,
+    UploadedFiles,
     UseInterceptors,
+    Res,
+    Patch,
+    Delete
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { AuthGuard } from 'src/auth/guards/auth.guard';
 import { FtpService, NatsService, RecordsService } from 'src/common';
 import { FilteredPaginationDto } from './dto';
-
+import { AnyFilesInterceptor } from '@nestjs/platform-express';
+import { Response } from 'express';
 @ApiBearerAuth('msp')
 @ApiTags('beneficiaries')
 @UseGuards(AuthGuard)
@@ -140,5 +146,111 @@ export class PersonsController {
   })
   async searchAffiliate(@Param('value') value: string, @Param('type') type: string) {
     return this.nats.send('person.search', { value, type });
+  }
+
+  @Post(':personId/createPhoto/:identityCard')
+  @UseInterceptors(AnyFilesInterceptor())
+  @ApiResponse({
+    status: 200,
+    description: 'Crear una foto de una persona',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Error de validación de entrada',
+  })
+  @ApiResponse({
+    status: 500,
+    description: 'Error interno del servidor',
+  })
+  async createPhoto(
+    @Param('personId', ParseIntPipe) personId: number,
+    @Param('identityCard') identityCard: string,
+    @UploadedFiles() files: Express.Multer.File[],
+  ) {
+
+    // if (!files || files.length === 0) {
+    //   throw new BadRequestException('Debe subir al menos un archivo PDF');
+    // }
+
+    // files.forEach((file) => {
+    //   if (file.mimetype !== 'application/pdf') {
+    //     throw new BadRequestException('Todos los archivos deben ser PDF');
+    //   }
+    // });
+    const { error, message, personPhotos } = await this.nats.firstValue('person.createPhoto', { personId, identityCard });
+
+    if (!error) {
+      await this.ftp.uploadFile(files, personPhotos);
+    }
+
+    return {
+      error,
+      message,
+    };
+  }
+
+  @Patch(':personId/updatePhoto/:identityCard')
+  @UseInterceptors(AnyFilesInterceptor())
+  @ApiResponse({
+    status: 200,
+    description: 'Actualizar una foto de una persona',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Error de validación de entrada',
+  })
+  @ApiResponse({
+    status: 500,
+    description: 'Error interno del servidor',
+  })
+  async updatePhoto(
+      @Param('personId', ParseIntPipe) personId: number,
+      @Param('identityCard') identityCard: string,
+      @UploadedFiles() files: Express.Multer.File[],
+    ) {
+
+    // if (!files || files.length === 0) {
+    //   throw new BadRequestException('Debe subir al menos un archivo PDF');
+    // }
+
+    // files.forEach((file) => {
+    //   if (file.mimetype !== 'application/pdf') {
+    //     throw new BadRequestException('Todos los archivos deben ser PDF');
+    //   }
+    // });
+    const { error, message, personPhotos } = await this.nats.firstValue('person.updatePhoto', { personId, identityCard });
+
+    if (!error) {
+      await this.ftp.uploadFile(files, personPhotos);
+    }
+
+    return {
+      error,
+      message,
+    };
+  }
+
+  @Delete(':personId/deletePhoto')
+  async deletePhoto(@Param('personId', ParseIntPipe) personId: number ) {
+    return this.nats.firstValue('person.deletePhoto', { personId });
+  }
+
+  @Get(':personId/photo')
+  async findPersonPhoto(
+    @Param('personId', ParseIntPipe) personId: number,
+    @Res() res: Response,
+  ) {
+    const personPhoto = await this.nats.firstValue('person.findPhoto', { personId });
+
+    const file = await this.ftp.downloadFile(personPhoto);
+
+    res.set({
+      "Content-Type": personPhoto.mimeType ?? "image/jpeg",
+      "Cache-Control": "no-store, no-cache, must-revalidate, private",
+      "Pragma": "no-cache",
+      "Expires": "0",
+    });
+
+    res.send(file[0].pdfBuffer);
   }
 }
