@@ -37,7 +37,7 @@ async function bootstrap() {
   app.use(json({ limit: '50mb' }));
   app.use(urlencoded({ limit: '50mb', extended: true }));
   logger.log(`Gateway running on port ${PortEnvs.port}`);
-  if (PortEnvs.environment === 'dev') {
+  if (PortEnvs.environment != 'prod') {
     //Configuración swagger (Documentación de las APIS)
     const config = new DocumentBuilder()
       .setTitle('APIS DOCUMENTATION')

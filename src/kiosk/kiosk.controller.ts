@@ -1,31 +1,30 @@
+import { HttpService } from '@nestjs/axios';
 import {
   Body,
   Controller,
   Get,
-  Param,
   Headers,
+  Param,
   Post,
-  UploadedFiles,
-  UseInterceptors,
-  UseGuards,
   Query,
-  HttpException,
   Res,
+  HttpException,
+  UploadedFiles,
+  UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { ApiBody, ApiConsumes, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { firstValueFrom } from 'rxjs';
 import { Response } from 'express';
-import { PvtEnvs } from 'src/config';
-import { HttpService } from '@nestjs/axios';
 import { HashPvtGuard } from 'src/auth/guards/hashpvt.guard';
+import { FtpService, NatsService, RecordsService } from 'src/common';
+import { PvtEnvs } from 'src/config';
 import { SaveDataKioskAuthDto } from './dto/save-data-kiosk-auth.dto';
-import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { UploadPhotosDto } from './dto/save-photos.dto';
-import { NatsService, FtpService } from 'src/common';
-import { Records } from 'src/records/records.interceptor';
 
 @ApiTags('kiosk')
-@UseInterceptors(Records)
+@UseInterceptors(RecordsService)
 @Controller('kiosk')
 export class KioskController {
   constructor(
@@ -120,8 +119,8 @@ export class KioskController {
         this.httpService.get(url, { headers: { authorization } }),
       );
       return data;
-    } catch (error) {
-      return error.response.data;
+    } catch {
+      return ;
     }
   }
 
@@ -134,8 +133,11 @@ export class KioskController {
         this.httpService.get(url, { headers: { authorization } }),
       );
       return data;
-    } catch (error) {
-      return error.response.data;
+    } catch {
+      return {
+        error: true,
+        message: 'Error al obtener complemento',
+      };
     }
   }
 
@@ -148,8 +150,11 @@ export class KioskController {
         this.httpService.post(url, body, { headers: { authorization } }),
       );
       return data;
-    } catch (error) {
-      return error.response.data;
+    } catch {
+      return {
+        error: true,
+        message: 'Error al crear complemento',
+      };
     }
   }
 
@@ -159,28 +164,35 @@ export class KioskController {
     description: 'Obtener préstamos de un afiliado',
   })
   async getAffiliateLoans(@Param('identityCard') identityCard: string) {
-    let ecoComResponse: any = null;
-    let loansResponse: any = null;
     const ecoComUrl = `${PvtEnvs.PvtBeApiServer}/kioskoComplemento?ci=${identityCard}`;
     const loansUrl = `${PvtEnvs.PvtBackendApiServer}/kiosk/verify_loans/${identityCard}`;
+
+    let ecoComResponse: any;
+    let loansResponse: any;
+
     try {
-      const { data } = await firstValueFrom(this.httpService.get(ecoComUrl));
+      const { data } = await firstValueFrom(
+        this.httpService.get(ecoComUrl),
+      );
+
       ecoComResponse = data;
     } catch (error) {
       ecoComResponse = {
-        error: error.response?.data?.error,
-        canCreate: error.response?.data?.canCreate,
-        message: error.response?.data?.message || 'Error al verificar complemento',
+        error: true,
+        message: error || 'Error al obtener complemento',
       };
     }
 
     try {
-      const { data } = await firstValueFrom(this.httpService.get(loansUrl));
+      const { data } = await firstValueFrom(
+        this.httpService.get(loansUrl),
+      );
+
       loansResponse = data;
     } catch (error) {
       loansResponse = {
         error: true,
-        message: error.response?.data?.message || 'Error al obtener préstamos',
+        message: error || 'Error al obtener préstamos',
       };
     }
 

@@ -35,12 +35,18 @@ interface EnvVars {
   CITIZENSHIP_DIGITAL_CLIENT_ID: string;
   CITIZENSHIP_DIGITAL_REDIRECT_URI: string;
   CITIZENSHIP_DIGITAL_SCOPES: string;
+
+  BCB_URL: string;
+  BCB_ENTITY_ID: string;
+  BCB_KEY_ID: string;
+  BCB_SECRET: string;
+  BCB_TOKEN: string;
 }
 
 const envsSchema = joi
   .object({
     PORT: joi.number().required(),
-    ENVIRONMENT: joi.string().valid('prod', 'dev').required(),
+    ENVIRONMENT: joi.string().valid('prod', 'test', 'dev').required(),
 
     NATS_SERVERS: joi.array().items(joi.string()).required(),
     FRONTEND_SERVERS: joi.array().items(joi.string()).required(),
@@ -62,6 +68,12 @@ const envsSchema = joi
     CITIZENSHIP_DIGITAL_CLIENT_ID: joi.string(),
     CITIZENSHIP_DIGITAL_REDIRECT_URI: joi.string(),
     CITIZENSHIP_DIGITAL_SCOPES: joi.string(),
+
+    BCB_URL: joi.string(),
+    BCB_ENTITY_ID: joi.string(),
+    BCB_KEY_ID: joi.string(),
+    BCB_SECRET: joi.string(),
+    BCB_TOKEN: joi.string(),
 
     PVT_API_SERVER: joi.string(),
     PVT_HASH_SECRET: joi.string(),
@@ -137,4 +149,12 @@ export const citizenshipDigitalEnvs = {
   clientId: envVars.CITIZENSHIP_DIGITAL_CLIENT_ID,
   redirectUri: envVars.CITIZENSHIP_DIGITAL_REDIRECT_URI,
   scopes: envVars.CITIZENSHIP_DIGITAL_SCOPES,
+};
+
+export const bcbEnvs = {
+  bcbUrl: envVars.BCB_URL,
+  bcbEntityId: envVars.BCB_ENTITY_ID,
+  bcbKeyId: envVars.BCB_KEY_ID,
+  bcbSecret: envVars.BCB_SECRET,
+  bcbToken: envVars.BCB_TOKEN,
 };

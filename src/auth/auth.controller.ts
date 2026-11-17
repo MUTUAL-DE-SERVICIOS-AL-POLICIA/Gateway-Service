@@ -1,25 +1,24 @@
 import {
-  Body,
-  Controller,
-  Delete,
-  Get,
-  Post,
-  Req,
-  Res,
-  UseGuards,
-  UseInterceptors,
+    Body,
+    Controller,
+    Delete,
+    Get,
+    Post,
+    Req,
+    Res,
+    UseGuards,
+    UseInterceptors,
 } from '@nestjs/common';
-import { ApiBody, ApiOperation, ApiResponse, ApiTags, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Response } from 'express';
 import { AuthAppMobileGuard } from 'src/auth/guards';
-import { NatsService } from 'src/common';
-import { Records } from 'src/records/records.interceptor';
-import { LoginUserDto, LoginAppMobileDto } from './dto';
+import { NatsService, RecordsService } from 'src/common';
+import { LoginAppMobileDto, LoginUserDto } from './dto';
 import { CurrentUser } from './interfaces/current-user.interface';
 
 @ApiBearerAuth('msp')
 @ApiTags('auth')
-@UseInterceptors(Records)
+@UseInterceptors(RecordsService)
 @Controller('auth')
 export class AuthController {
   constructor(private readonly nats: NatsService) {}
@@ -55,7 +54,7 @@ export class AuthController {
         user: data.user,
         access: data.access,
       };
-    } catch (error) {
+    } catch {
       return {
         error: true,
         message: 'Credenciales inválidas',
@@ -128,4 +127,13 @@ export class AuthController {
   async credentialsCitizenshipDigital() {
     return await this.nats.firstValue('auth.credentialsCitizenshipDigital', {});
   }
+
+  
+
+  // Código para generar token para el BCB Test
+  @Get('generateBcbJwt')
+  async generateBcbJwt() {
+    return await this.nats.firstValue('authBcb.generateJwt', {});
+  }
+
 }
