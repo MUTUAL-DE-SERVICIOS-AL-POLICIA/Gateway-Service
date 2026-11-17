@@ -27,9 +27,9 @@ export class WhatsappService {
         messageId: messageId,
       };
     } catch (error) {
-      console.error('Error capturado:', error?.message || error);
-      if (error.response) {
-        console.error('Respuesta del error:', error.response?.data);
+      console.error('Error capturado:', error || error);
+      if (error) {
+        console.error('Respuesta del error:', error);
       }
       throw new HttpException('Error enviando whatsapp', HttpStatus.BAD_GATEWAY);
     }

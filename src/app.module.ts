@@ -8,7 +8,8 @@ import { DatabaseModule } from './database/database.module';
 import { PvtBeModule } from './pvt-be/pvt-be.module';
 import { PvtStiModule } from './pvt-sti/pvt-sti.module';
 import { AppMobileModule } from './app-mobile/app-mobile.module';
-import { RecordsModule } from './records/records.module';
+import { SalesModule } from './sales/sales.module';
+import { CollectionsModule } from './collections/collections.module';
 
 @Module({
   imports: [
@@ -21,7 +22,8 @@ import { RecordsModule } from './records/records.module';
     PvtBeModule,
     PvtStiModule,
     AppMobileModule,
-    RecordsModule,
+    SalesModule,
+    CollectionsModule,
   ],
 })
 export class AppModule {}
