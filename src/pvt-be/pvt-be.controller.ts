@@ -126,4 +126,129 @@ export class PvtBeController {
     );
     return data;
   }
+
+  // --- App móvil: fondo de retiro y cuota/auxilio mortuorio ---
+  // Proxy directo al API de PVT-BE. El afiliado sale del token (middleware api_auth).
+  // Las respuestas son { error, message, data }; en las impresiones `data.content` viaja en base64.
+  @MessagePattern('pvtBe.retFunRetirementFunds')
+  async retFunRetirementFunds(body: { authorization: string }) {
+    const { authorization } = body;
+    const url = `${PvtEnvs.PvtBeApiServer}/ret_fun`;
+    const { data } = await firstValueFrom(
+      this.httpService.get(url, { headers: { authorization } }),
+    );
+    return data;
+  }
+
+  @MessagePattern('pvtBe.retFunLiquidationPrint')
+  async retFunLiquidationPrint(body: {
+    authorization: string;
+    retirementFundId: string;
+  }) {
+    const { authorization, retirementFundId } = body;
+    const url = `${PvtEnvs.PvtBeApiServer}/ret_fun/${retirementFundId}/print/liquidation`;
+    const { data } = await firstValueFrom(
+      this.httpService.get(url, { headers: { authorization } }),
+    );
+    return data;
+  }
+
+  @MessagePattern('pvtBe.quotaAidMortuaries')
+  async quotaAidMortuaries(body: { authorization: string }) {
+    const { authorization } = body;
+    const url = `${PvtEnvs.PvtBeApiServer}/quota_aid`;
+    const { data } = await firstValueFrom(
+      this.httpService.get(url, { headers: { authorization } }),
+    );
+    return data;
+  }
+
+  @MessagePattern('pvtBe.quotaAidLiquidationPrint')
+  async quotaAidLiquidationPrint(body: {
+    authorization: string;
+    quotaAidId: string;
+  }) {
+    const { authorization, quotaAidId } = body;
+    const url = `${PvtEnvs.PvtBeApiServer}/quota_aid/${quotaAidId}/print/liquidation`;
+    const { data } = await firstValueFrom(
+      this.httpService.get(url, { headers: { authorization } }),
+    );
+    return data;
+  }
+
+  // --- Kiosko: el afiliado se resuelve por `ci` (no hay token de afiliado) ---
+  // Mismo formato que la app móvil: listas { error, message, data } e impresión con `data.content` en base64.
+  // Si el API de PVT-BE falla, se normaliza con buildError para que el Kiosk-Service lo propague.
+  @MessagePattern('pvtBe.kioskRetFunRetirementFunds')
+  async kioskRetFunRetirementFunds(body: { authorization: string; ci: string }) {
+    const { authorization, ci } = body;
+    const url = `${PvtEnvs.PvtBeApiServer}/kiosko/ret_fun?ci=${encodeURIComponent(ci)}`;
+    try {
+      const { data } = await firstValueFrom(
+        this.httpService.get(url, { headers: { authorization } }),
+      );
+      return data;
+    } catch (error: any) {
+      return this.buildError(error, 'Error al obtener fondo de retiro');
+    }
+  }
+
+  @MessagePattern('pvtBe.kioskQuotaAidMortuaries')
+  async kioskQuotaAidMortuaries(body: { authorization: string; ci: string }) {
+    const { authorization, ci } = body;
+    const url = `${PvtEnvs.PvtBeApiServer}/kiosko/quota_aid?ci=${encodeURIComponent(ci)}`;
+    try {
+      const { data } = await firstValueFrom(
+        this.httpService.get(url, { headers: { authorization } }),
+      );
+      return data;
+    } catch (error: any) {
+      return this.buildError(
+        error,
+        'Error al obtener cuota y auxilio mortuorio',
+      );
+    }
+  }
+
+  @MessagePattern('pvtBe.kioskRetFunLiquidationPrint')
+  async kioskRetFunLiquidationPrint(body: {
+    authorization: string;
+    retirementFundId: string;
+  }) {
+    const { authorization, retirementFundId } = body;
+    const url = `${PvtEnvs.PvtBeApiServer}/kiosko/ret_fun/${retirementFundId}/print/liquidation`;
+    try {
+      const { data } = await firstValueFrom(
+        this.httpService.get(url, { headers: { authorization } }),
+      );
+      return data;
+    } catch (error: any) {
+      return this.buildError(error, 'Error al obtener la liquidación');
+    }
+  }
+
+  @MessagePattern('pvtBe.kioskQuotaAidLiquidationPrint')
+  async kioskQuotaAidLiquidationPrint(body: {
+    authorization: string;
+    quotaAidId: string;
+  }) {
+    const { authorization, quotaAidId } = body;
+    const url = `${PvtEnvs.PvtBeApiServer}/kiosko/quota_aid/${quotaAidId}/print/liquidation`;
+    try {
+      const { data } = await firstValueFrom(
+        this.httpService.get(url, { headers: { authorization } }),
+      );
+      return data;
+    } catch (error: any) {
+      return this.buildError(error, 'Error al obtener la liquidación');
+    }
+  }
+
+  private buildError(error: any, fallbackMessage: string) {
+    return {
+      error: true,
+      message: error?.response?.data?.message ?? fallbackMessage,
+      statusCode: error?.response?.status ?? 500,
+    };
+  }
 }
