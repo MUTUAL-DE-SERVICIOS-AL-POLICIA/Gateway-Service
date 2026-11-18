@@ -7,13 +7,17 @@ import {
   SmsService,
   WhatsappService,
   CitizenshipDigitalService,
+  BcbService,
+  ImportCsvService,
+  PdfBufferService,
 } from 'src/common';
 import { CommonController } from './common.controller';
+import { NotificationsController } from './notifications.controller';
 import { HttpModule } from '@nestjs/axios';
 
 @Global()
 @Module({
-  controllers: [CommonController],
+  controllers: [CommonController, NotificationsController],
   imports: [
     ClientsModule.register([
       {
@@ -32,6 +36,9 @@ import { HttpModule } from '@nestjs/axios';
     SmsService,
     WhatsappService,
     CitizenshipDigitalService,
+    BcbService,
+    ImportCsvService,
+    PdfBufferService,
   ],
   exports: [
     ClientsModule,
@@ -40,6 +47,9 @@ import { HttpModule } from '@nestjs/axios';
     SmsService,
     WhatsappService,
     CitizenshipDigitalService,
+    BcbService,
+    ImportCsvService,
+    PdfBufferService,
     HttpModule,
   ],
 })

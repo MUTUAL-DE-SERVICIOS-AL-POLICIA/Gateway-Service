@@ -21,11 +21,11 @@ export class FtpService {
         user: envsFtp.ftpUsername,
         password: envsFtp.ftpPassword,
         secure: envsFtp.ftpSsl,
+        secureOptions: { rejectUnauthorized: false },
       });
       this.logger.log('Connected to FTP server successfully');
     } catch (error) {
       this.logger.error('Failed to connect to FTP server:', error);
-      throw new Error('Failed to connect to FTP server');
     }
   }
 
@@ -44,7 +44,6 @@ export class FtpService {
       }
     } catch (error) {
       this.logger.error('Failed to switch connection:', error);
-      throw new Error('Failed to switch connection');
     }
   }
 
@@ -73,7 +72,6 @@ export class FtpService {
       }
     } catch (error) {
       this.logger.error('Failed to upload file:', error);
-      throw new Error('Failed to upload file');
     } finally {
       this.onDestroy();
     }
@@ -91,7 +89,6 @@ export class FtpService {
       this.logger.log(`Saved chunk to ${chunkPath} success`);
     } catch (error) {
       this.logger.error('Failed to save chunk:', error);
-      throw new Error('Failed to save chunk');
     }
   }
 
@@ -124,8 +121,6 @@ export class FtpService {
       return [fileObject];
     } catch (error) {
       this.logger.error('Failed to concat and upload chunks:', error);
-      throw new Error('Failed to concat and upload chunks');
-    } finally {
     }
   }
 
@@ -155,11 +150,11 @@ export class FtpService {
       return finalData;
     } catch (error) {
       this.logger.error('Failed to download file:', error);
-      throw new Error('Failed to download file:');
     } finally {
       this.onDestroy();
     }
   }
+
 
   async removeFile(data: string[]) {
     try {
@@ -179,7 +174,6 @@ export class FtpService {
       };
     } catch (error) {
       this.logger.error('Failed to remove file:', error);
-      throw new Error('Failed to remove file');
     } finally {
       this.onDestroy();
     }
@@ -193,7 +187,6 @@ export class FtpService {
       return files;
     } catch (error) {
       this.logger.error('Failed to list files:', error);
-      throw new Error('Failed to list files');
     }
   }
 
@@ -216,7 +209,6 @@ export class FtpService {
         `Failed to move file from ${envsFtp.ftpRoot}${remoteFilePath} to ${envsFtp.ftpRoot}${destinationFilePath}`,
         error,
       );
-      throw new Error(`Failed to move file`);
     }
   }
 
@@ -241,7 +233,6 @@ export class FtpService {
       return { statusSaved: true, message: 'Data saved successfully' };
     } catch (error) {
       this.logger.error('Failed to save data:', error);
-      throw new Error('Failed to save data');
     }
   }
 
@@ -257,7 +248,7 @@ export class FtpService {
       const raw = fs.readFileSync(filePath, 'utf8');
 
       return JSON.parse(raw);
-    } catch (error) {
+    } catch {
       return null;
     }
   }

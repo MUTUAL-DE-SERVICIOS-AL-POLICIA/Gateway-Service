@@ -90,7 +90,7 @@ export class CitizenshipDigitalService {
         profile,
         urlLogout,
       };
-    } catch (error) {
+    } catch {
       throw new HttpException('Error consultando ciudadanía digital', HttpStatus.BAD_GATEWAY);
     }
   }
