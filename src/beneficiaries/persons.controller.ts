@@ -1,29 +1,30 @@
 import {
-    BadRequestException,
-    Body,
-    Controller,
-    Get,
-    Param,
-    ParseIntPipe,
-    ParseUUIDPipe,
-    Post,
-    Query,
-    UseGuards,
-    UploadedFiles,
-    UseInterceptors,
-    Res,
-    Patch,
-    Delete
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseIntPipe,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
+  Res,
+  UploadedFiles,
+  UseInterceptors,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { AuthGuard } from 'src/auth/guards/auth.guard';
+import { AnyFilesInterceptor } from '@nestjs/platform-express';
+import { ApiResponse, ApiTags } from '@nestjs/swagger';
+import { Response } from 'express';
+import {
+  WebController,
+  WebPermission,
+} from 'src/auth/decorators/web-authorization.decorators';
 import { FtpService, NatsService, RecordsService } from 'src/common';
 import { FilteredPaginationDto } from './dto';
-import { AnyFilesInterceptor } from '@nestjs/platform-express';
-import { Response } from 'express';
-@ApiBearerAuth('msp')
+
 @ApiTags('beneficiaries')
-@UseGuards(AuthGuard)
+@WebController('beneficiary', 'persons')
 @UseInterceptors(RecordsService)
 @Controller('beneficiaries/persons')
 export class PersonsController {
@@ -33,6 +34,7 @@ export class PersonsController {
   ) {}
 
   @Get('showListFingerprint')
+  @WebPermission('read', 'fingerprints')
   @ApiResponse({
     status: 200,
     description: 'Mostrar el listado de huellas digitales',
@@ -42,18 +44,21 @@ export class PersonsController {
   }
 
   @Get()
+  @WebPermission('read')
   @ApiResponse({ status: 200, description: 'Mostrar todas las personas' })
   findAllPersons(@Query() filterDto: FilteredPaginationDto) {
     return this.nats.send('person.findAll', filterDto);
   }
 
   @Get(':term')
+  @WebPermission('read')
   @ApiResponse({ status: 200, description: 'Mostrar una persona' })
   async findOnePersons(@Param('term') term: string) {
     return this.nats.send('person.findOne', { term, field: 'id' });
   }
 
   @Get(':uuid/details')
+  @WebPermission('read')
   @ApiResponse({
     status: 200,
     description: 'Muestra una persona con sus relaciones y características adicionales',
@@ -62,6 +67,7 @@ export class PersonsController {
     return this.nats.send('person.findOneWithFeatures', { uuid });
   }
   @Get(':personId/beneficiaries')
+  @WebPermission('read')
   @ApiResponse({
     status: 200,
     description: 'Mostrar los beneficiarios de una persona',
@@ -75,6 +81,7 @@ export class PersonsController {
   }
 
   @Get(':personId/affiliates')
+  @WebPermission('read', 'affiliates')
   @ApiResponse({
     status: 200,
     description: 'Mostrar los afiliados relacionados con una persona',
@@ -84,6 +91,7 @@ export class PersonsController {
   }
 
   @Post(':personId/createPersonFingerprint')
+  @WebPermission('write', 'fingerprints')
   @ApiResponse({
     status: 200,
     description: 'Crear una huella digital de una persona',
@@ -122,6 +130,7 @@ export class PersonsController {
   }
 
   @Get('showPersonFingerprint/:id')
+  @WebPermission('read', 'fingerprints')
   @ApiResponse({
     status: 200,
     description: 'Mostrar el listado de huellas digitales de una persona',
@@ -131,6 +140,7 @@ export class PersonsController {
   }
 
   @Get('records/:personId')
+  @WebPermission('read', 'records')
   @ApiResponse({
     status: 200,
     description: 'Obtener los registros de una persona por su ID',
@@ -140,6 +150,7 @@ export class PersonsController {
   }
 
   @Get('search/:value/:type')
+  @WebPermission('read')
   @ApiResponse({
     status: 200,
     description: 'Buscar un afiliado',
@@ -149,6 +160,7 @@ export class PersonsController {
   }
 
   @Post(':personId/createPhoto/:identityCard')
+  @WebPermission('write', 'photos')
   @UseInterceptors(AnyFilesInterceptor())
   @ApiResponse({
     status: 200,
@@ -167,7 +179,6 @@ export class PersonsController {
     @Param('identityCard') identityCard: string,
     @UploadedFiles() files: Express.Multer.File[],
   ) {
-
     // if (!files || files.length === 0) {
     //   throw new BadRequestException('Debe subir al menos un archivo PDF');
     // }
@@ -177,7 +188,10 @@ export class PersonsController {
     //     throw new BadRequestException('Todos los archivos deben ser PDF');
     //   }
     // });
-    const { error, message, personPhotos } = await this.nats.firstValue('person.createPhoto', { personId, identityCard });
+    const { error, message, personPhotos } = await this.nats.firstValue(
+      'person.createPhoto',
+      { personId, identityCard },
+    );
 
     if (!error) {
       await this.ftp.uploadFile(files, personPhotos);
@@ -190,6 +204,7 @@ export class PersonsController {
   }
 
   @Patch(':personId/updatePhoto/:identityCard')
+  @WebPermission('update', 'photos')
   @UseInterceptors(AnyFilesInterceptor())
   @ApiResponse({
     status: 200,
@@ -204,11 +219,10 @@ export class PersonsController {
     description: 'Error interno del servidor',
   })
   async updatePhoto(
-      @Param('personId', ParseIntPipe) personId: number,
-      @Param('identityCard') identityCard: string,
-      @UploadedFiles() files: Express.Multer.File[],
-    ) {
-
+    @Param('personId', ParseIntPipe) personId: number,
+    @Param('identityCard') identityCard: string,
+    @UploadedFiles() files: Express.Multer.File[],
+  ) {
     // if (!files || files.length === 0) {
     //   throw new BadRequestException('Debe subir al menos un archivo PDF');
     // }
@@ -218,7 +232,10 @@ export class PersonsController {
     //     throw new BadRequestException('Todos los archivos deben ser PDF');
     //   }
     // });
-    const { error, message, personPhotos } = await this.nats.firstValue('person.updatePhoto', { personId, identityCard });
+    const { error, message, personPhotos } = await this.nats.firstValue(
+      'person.updatePhoto',
+      { personId, identityCard },
+    );
 
     if (!error) {
       await this.ftp.uploadFile(files, personPhotos);
@@ -231,11 +248,13 @@ export class PersonsController {
   }
 
   @Delete(':personId/deletePhoto')
-  async deletePhoto(@Param('personId', ParseIntPipe) personId: number ) {
+  @WebPermission('delete', 'photos')
+  async deletePhoto(@Param('personId', ParseIntPipe) personId: number) {
     return this.nats.firstValue('person.deletePhoto', { personId });
   }
 
   @Get(':personId/photo')
+  @WebPermission('read', 'photos')
   async findPersonPhoto(
     @Param('personId', ParseIntPipe) personId: number,
     @Res() res: Response,
@@ -245,10 +264,10 @@ export class PersonsController {
     const file = await this.ftp.downloadFile(personPhoto);
 
     res.set({
-      "Content-Type": personPhoto.mimeType ?? "image/jpeg",
-      "Cache-Control": "no-store, no-cache, must-revalidate, private",
-      "Pragma": "no-cache",
-      "Expires": "0",
+      'Content-Type': personPhoto.mimeType ?? 'image/jpeg',
+      'Cache-Control': 'no-store, no-cache, must-revalidate, private',
+      Pragma: 'no-cache',
+      Expires: '0',
     });
 
     res.send(file[0].pdfBuffer);

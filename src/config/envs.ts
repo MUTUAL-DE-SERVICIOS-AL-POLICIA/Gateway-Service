@@ -11,6 +11,7 @@ interface EnvVars {
   PVT_BE_API_SERVER: string;
   PVT_BACKEND_API_SERVER: string;
   PVT_HASH_SECRET: string;
+  PVT_IMPORT_API_KEY: string;
 
   DB_PASSWORD: string;
   DB_DATABASE: string;
@@ -77,6 +78,7 @@ const envsSchema = joi
 
     PVT_API_SERVER: joi.string(),
     PVT_HASH_SECRET: joi.string(),
+    PVT_IMPORT_API_KEY: joi.string().required(),
 
     DB_PASSWORD: joi.string().required(),
     DB_DATABASE: joi.string().required(),
@@ -106,6 +108,10 @@ export const PortEnvs = {
 export const NastEnvs = {
   natsServers: envVars.NATS_SERVERS,
 };
+
+export const PvtImportEnvs = Object.freeze({
+  apiKey: envVars.PVT_IMPORT_API_KEY,
+});
 
 export const DbEnvs = {
   dbPassword: envVars.DB_PASSWORD,
